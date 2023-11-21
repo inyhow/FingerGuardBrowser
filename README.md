@@ -1,0 +1,2 @@
+# FingerGuardBrowser
+FingerGuardBrowser 是一款专为注重海外隐私保护的用户而设计的指纹浏览器，重点它无需注册登录，并且是完全免费的
