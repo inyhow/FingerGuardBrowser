@@ -1,0 +1,8 @@
+PyQt5==5.15.9
+PyQtWebEngine==5.15.6
+undetected-chromedriver==3.5.3
+selenium==4.11.2
+websockets>=11.0.3
+requests>=2.31.0
+python-dotenv>=1.0.0
+loguru==0.7.0

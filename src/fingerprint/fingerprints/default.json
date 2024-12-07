@@ -1,0 +1,25 @@
+{
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "navigator": {
+        "platform": "Win32",
+        "language": "en-US",
+        "languages": ["en-US", "en"],
+        "hardwareConcurrency": 8,
+        "deviceMemory": 8,
+        "vendor": "",
+        "vendorSub": "",
+        "productSub": "20030107",
+        "cookieEnabled": true
+    },
+    "screen": {
+        "width": 1920,
+        "height": 1080,
+        "colorDepth": 24,
+        "pixelDepth": 24
+    },
+    "timezone": "America/New_York",
+    "webgl": {
+        "vendor": "Google Inc. (NVIDIA)",
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    }
+}

@@ -1,0 +1,689 @@
+
+/* jshint -W033 */ // Missing semicolon
+/* jshint -W069 */ // is better written in dot notation
+
+(function($) {
+	IpLeak =
+	{
+		torrentHash: "",
+		torrentUpdateInterval: 0,
+		torrentViewRequest: false,
+
+		dnsDetectionSession: "",
+		dnsDetectionStep: 0,
+		dnsDetectionCountIP: 0,
+		dnsDetectionSuccess: 0,
+		dnsDetectionFail: 0,
+
+		tasks: new Array(),
+
+		start: function () {
+			IpLeak.data = JSON.parse($("#jsonData").attr("data-json"));
+
+			IpLeak.initTooltip($("[data-tooltip]"));
+
+			$("#geolocation_by_browser_detection_start_button").click(function() {
+				IpLeak.geolocationByBrowserDetectionStart();
+			});
+
+			$("#geolocation_by_ip_detection_start_button").click(function() {
+				IpLeak.geolocationByIpDetectionStart();
+			});
+
+			$("#torrent_detection_refresh").click(function() {
+				IpLeak.torrentDetectionUpdate();
+			});
+
+			$(".js_required").fadeIn(1000);
+
+			$("span[data-time]").each(function () {
+				var t = $(this).attr("data-time");
+				var m = moment.unix(t);
+				$(this).text(m.format('dddd D MMMM YYYY HH:mm:ss'));
+			});
+
+			IpLeak.tasks.push("client_only");
+
+			if ($("#dnsdetection_results").length != 0) {
+				IpLeak.tasks.push("dns_detection");
+			}
+
+			if ($("#myipv4_placeholder").length != 0) {
+				IpLeak.tasks.push("rtc_detection");
+				IpLeak.tasks.push("ipv4_address");
+				IpLeak.tasks.push("ipv6_address");
+				IpLeak.tasks.push("browser_default");
+			}
+
+			if($("#map").length != 0) {
+				IpLeak.tasks.push("google_maps");
+			}
+
+			IpLeak.nextTask();
+		},
+
+		fetch: function(url, callbackDone, callbackFail, callbackAlways)
+		{
+			IpLeak.fetchSingle(url, callbackDone, callbackFail, callbackAlways, 1, 3);
+		},
+
+		fetchSingle: function(url, callbackDone, callbackFail, callbackAlways, iTry, nTry)
+		{
+			var timeoutMs = 5000;
+			var timeStart = (new Date).getTime();
+
+			$.ajax(
+				{
+					url:url,
+					timeout: timeoutMs,
+					cache: false
+				}
+			)
+			.done(function (data) {
+				var timeDelta = (new Date).getTime() - timeStart;
+				callbackDone(data, timeDelta);
+				callbackAlways();
+			})
+			.fail(function (jqXHR, textStatus, error) {
+				callbackFail(textStatus, iTry, nTry);
+				if(iTry < nTry)
+				{
+					IpLeak.fetchSingle(url, callbackDone, callbackFail, callbackAlways, iTry+1, nTry);
+				}
+				else
+				{
+					callbackAlways();
+				}
+			})
+			.always(function () {
+				//callbackAlways();
+			});
+		},
+
+		nextTask: function()
+		{
+			var timeoutMs = 5000;
+
+			if(IpLeak.tasks.length == 0)
+			{
+				return;
+			}
+
+			var task = IpLeak.tasks.shift();
+
+			if(task == "client_only")
+			{
+				if ($("#plugins")) {
+					$("#system").html(IpLeak.dumpInfoSystem());
+					$("#screen").html(IpLeak.dumpInfoScreen());
+					$("#plugins").html(IpLeak.dumpInfoPlugins());
+					$("#mimetypes").html(IpLeak.dumpInfoMimeTypes());
+				}
+
+				IpLeak.nextTask();
+			}
+			else if(task == "ipv4_address")
+			{
+				IpLeak.fetch("https://ipv4.ipleak.net/?mode=ajax",
+					function(data)
+					{
+						$("#myipv4_placeholder").html(data);
+						IpLeak.initTooltip($("#myipv4_placeholder").find("[data-tooltip]"));
+					},
+					function(error, iTry, nTry)
+					{
+						var errorMsg = error;
+						if(iTry<nTry)
+							errorMsg += " - Try " + iTry + "/" + nTry;
+						$("#myipv4_placeholder").html("<div class='docs_center'><img class='status' src='/static/images/status/no.png'>IPv4 test not reachable. <span class='notes'>(" + errorMsg + ")</span></div>");
+					},
+					function()
+					{
+						IpLeak.nextTask();
+					}
+				)
+			}
+			else if(task == "ipv6_address")
+			{
+				IpLeak.fetch("https://ipv6.ipleak.net/?mode=ajax",
+					function(data)
+					{
+						$("#myipv6_placeholder").html(data);
+						IpLeak.initTooltip($("#myipv4_placeholder").find("[data-tooltip]"));
+					},
+					function(error, iTry, nTry)
+					{
+						var errorMsg = error;
+						if(iTry<nTry)
+							errorMsg += " - Try " + iTry + "/" + nTry;
+						$("#myipv6_placeholder").html("<div class='docs_center'><img class='status' src='/static/images/status/no.png'>IPv6 test not reachable. <span class='notes'>(" + errorMsg + ")</span></div>");
+					},
+					function()
+					{
+						IpLeak.nextTask();
+					}
+				)
+			}
+			else if(task == "browser_default")
+			{
+				IpLeak.fetch("https://ipleak.net/iplayer/",
+					function(data, elapsed)
+					{
+						$("#my_browser_default").html("<img class='status' src='/static/images/status/yes.png'>" + data.iplayer + " <span class='notes'>(" + elapsed + " ms)</span>");
+
+						IpLeak.fetch("https://fallback-" + data.iplayer.toLowerCase() + ".ipleak.net/iplayer/",
+							function(data, elapsed)
+							{
+								$("#my_browser_fallback").html("<img class='status' src='/static/images/status/yes.png'>" + data.iplayer + " <span class='notes'>(" + elapsed + " ms)</span>");
+							},
+							function(error, iTry, nTry)
+							{
+								var errorMsg = error;
+								if(iTry<nTry)
+									errorMsg += " - Try " + iTry + "/" + nTry;
+								$("#my_browser_fallback").html("<img class='status' src='/static/images/status/no.png'>Fail <span class='notes'>(" + errorMsg + ")</span>");
+							},
+							function()
+							{
+								IpLeak.nextTask();
+							}
+						)
+					},
+					function(error, iTry, nTry)
+					{
+						var errorMsg = error;
+						if(iTry<nTry)
+							errorMsg += " - Try " + iTry + "/" + nTry;
+						$("#my_browser_default").html("<img class='status' src='/static/images/status/no.png'>Fail <span class='notes'>(" + errorMsg + ")</span>");
+						$("#my_browser_fallback").html("<img class='status' src='/static/images/status/no.png'>Fail <span class='notes'>(skipped)</span>");
+						IpLeak.nextTask();
+					},
+					function()
+					{
+					}
+				)
+			}
+			else if(task == "rtc_detection")
+			{
+				IpLeak.rtcDetection();
+
+				IpLeak.nextTask(); // Note: don't wait results.
+			}
+			else if(task == "dns_detection")
+			{
+				IpLeak.dnsDetection();
+
+				IpLeak.nextTask(); // Note: don't wait results.
+			}
+			else if(task == "google_maps")
+			{
+				var url = "https://maps.google.com/?ie=UTF8&ll=" + IpLeak.data.latitude + "," + IpLeak.data.longitude + "&t=h&z=10&output=embed";
+				$("#map").attr("src",url);
+
+				IpLeak.nextTask();
+			}
+		},
+
+		dumpKeyValue: function (name, value) {
+			return "<tr><td>" + name + ": </td><td>" + value + "</td></tr>";
+		},
+
+		dumpInfoSystem: function () {
+			html = "";
+			html += "<table class=\"properties details\">";
+			html += IpLeak.dumpKeyValue("Platform", navigator.platform);
+			html += IpLeak.dumpKeyValue("Cookie enabled", navigator.cookieEnabled);
+			html += IpLeak.dumpKeyValue("Java enabled", navigator.javaEnabled());
+			if (navigator.taintEnabled)
+			html += IpLeak.dumpKeyValue("Taint enabled", navigator.taintEnabled());
+			html += IpLeak.dumpKeyValue("Online", navigator.onLine);
+			html += "</table>";
+			return html;
+		},
+
+		dumpInfoScreen: function () {
+			html = "";
+			html += "<table class=\"properties details\">";
+			html += IpLeak.dumpKeyValue("Your screen", window.screen.width + " x " + window.screen.height);
+
+			html += IpLeak.dumpKeyValue("Available screen", window.screen.availWidth + " x " + window.screen.availHeight);
+			html += IpLeak.dumpKeyValue("Color depth", window.screen.colorDepth);
+			html += IpLeak.dumpKeyValue("Pixel depth", window.screen.pixelDepth);
+			html += "</table>";
+			return html;
+		},
+
+		dumpInfoPlugins: function () {
+			html = "";
+			if ((navigator.plugins) && (navigator.plugins.length > 0)) {
+				html += "<div class=\"maxheight\">";
+				html += "<table class=\"properties details\">";
+				for (var i = 0; i < navigator.plugins.length ; i++) {
+					html += "<tr><td>Name: </td><td>" + navigator.plugins[i].name + "</td></tr>";
+
+					if (navigator.plugins[i].filename != "")
+						html += "<tr><td>File name: </td><td>" + navigator.plugins[i].filename + "</td></tr>";
+
+					if (navigator.plugins[i].description != "")
+						html += "<tr><td>Description: </td><td>" + navigator.plugins[i].description + "</td></tr>";
+
+					html += "<tr><td class=\"separator\" colspan=\"2\"></td><tr>";
+				}
+				html += "</table>";
+				html += "</div>";
+			}
+			else
+				html += "<div class=\"nodata\">No data available.</div>";
+			return html;
+		},
+
+		dumpInfoMimeTypes: function () {
+			html = "";
+			if ((navigator.mimeTypes) && (navigator.mimeTypes.length > 0)) {
+				html += "<div class=\"maxheight\">";
+				html += "<table class=\"properties details\">";
+				for (var i = 0; i < navigator.mimeTypes.length ; i++) {
+					html += "<tr><td>Mime Type: </td><td>" + navigator.mimeTypes[i].type + "</td></tr>";
+					html += "<tr><td>Extensions: </td><td>";
+					if (navigator.mimeTypes[i].suffixes != "")
+						html += (navigator.mimeTypes[i].suffixes)
+					else
+						html += (" * ");
+					html += "</td></tr>";
+
+					if (navigator.mimeTypes[i].description != "")
+						html += "<tr><td>Description: </td><td>" + navigator.mimeTypes[i].description + "</td></tr>";
+
+					if (navigator.mimeTypes[i].enabledPlugin)
+						html += "<tr><td>Plugin: </td><td>" + navigator.mimeTypes[i].enabledPlugin.name + "</td></tr>";
+
+					html += "<tr><td class=\"separator\" colspan=\"2\"></td><tr>";
+				}
+				html += "</table>";
+				html += "</div>";
+			}
+			else
+				html += "<div class=\"nodata\">No data available.</div>";
+			return html;
+		},
+
+		query: function (q) {
+			window.location = "/" + q;
+		},
+
+		initTooltip: function (src) {
+			var moveLeft = 10;
+			var moveDown = 20;
+			src.hover(
+			function (e) {
+				var tooltip = $(this).attr("data-tooltip");
+				if (tooltip != "") {
+					$("#root").before('<div id="tooltip"></div>')
+					$("div#tooltip").text(tooltip);
+				}
+			},
+			function (e) {
+				$("div#tooltip").remove();
+			}
+			);
+			src.mousemove(function (e) {
+				$("div#tooltip").css('top', e.pageY + moveDown).css('left', e.pageX + moveLeft);
+				$("div#tooltip").fadeIn(500);
+			});
+		},
+
+		getUrlParam: function (sParam, def) {
+			var sPageURL = decodeURIComponent(window.location.search.substring(1)),
+			sURLVariables = sPageURL.split('&'),
+			sParameterName,
+			i;
+
+			for (i = 0; i < sURLVariables.length; i++) {
+				sParameterName = sURLVariables[i].split('=');
+
+				if (sParameterName[0] === sParam) {
+					return sParameterName[1] === undefined ? true : sParameterName[1];
+				}
+			}
+
+			return def;
+		},
+
+		geolocationByIpDetectionStart: function () {
+
+			var domButton = $('#geolocation_by_ip_detection_start');
+			
+			domButton.slideUp();
+			
+			var box = $('#geolocation_by_ip_detection_result');
+
+			box.html(IpLeak.getHtmlGoogleMap(domButton.attr("data-lat"),domButton.attr("data-lon")));
+
+			box.slideDown();
+		},
+
+		geolocationByBrowserDetectionStart: function () {
+			$('#geolocation_by_browser_detection_start').slideUp();
+			$('#geolocation_by_browser_detection_wait').slideDown();
+
+			if (navigator.geolocation) {
+				navigator.geolocation.getCurrentPosition(IpLeak.geolocationSuccess, IpLeak.geolocationByBrowserDetectionError);
+			}
+			else {
+				IpLeak.geolocationByBrowserDetectionErrorMessage("Geolocation is not supported by this browser.");
+			}
+		},
+
+		geolocationSuccess: function (position) {
+			$('#geolocation_by_browser_detection_wait').slideUp();
+			$('#geolocation_by_browser_detection_success').slideDown();
+
+			var box = $('#geolocation_by_browser_detection_result');
+
+			
+			box.html(IpLeak.getHtmlGoogleMap(position.coords.latitude, position.coords.longitude));
+
+			box.slideDown();
+		},
+
+		geolocationByBrowserDetectionError: function (error) {
+			$('#geolocation_by_browser_detection_wait').slideUp();
+
+			var box = $('#geolocation_by_browser_detection_result');
+			switch (error.code) {
+				case error.PERMISSION_DENIED:
+					IpLeak.geolocationByBrowserDetectionErrorMessage("User denied the request for Geolocation.");
+					break;
+				case error.POSITION_UNAVAILABLE:
+					IpLeak.geolocationByBrowserDetectionErrorMessage("Location information is unavailable.");
+					break;
+				case error.TIMEOUT:
+					IpLeak.geolocationByBrowserDetectionErrorMessage("The request to get user location timed out.");
+					break;
+				case error.UNKNOWN_ERROR:
+					IpLeak.geolocationByBrowserDetectionErrorMessage("An unknown error occurred.");
+					break;
+			}
+		},
+
+		geolocationByBrowserDetectionErrorMessage: function (msg) {
+			var box = $('#geolocation_by_browser_detection_result');
+			box.html("<img class='width16px' src='/static/images/status/no.png'> " + msg);
+			box.slideDown();
+		},
+
+		rtcDetection: function () {
+			// Based on work by https://github.com/diafygi/webrtc-ips
+
+			var RTCPeerConnection = IpLeak.rtcGetPeerConnection();
+
+			if (typeof RTCPeerConnection === 'undefined') {
+				$('#rtc_placeholder').append($("<div><img class='width16px' src='/static/images/status/yes.png'>No leak, RTCPeerConnection not available.</div>"));
+				return;
+			}
+
+			$('#rtc_placeholder_private_v4').slideDown();
+			$('#rtc_placeholder_private_v6').slideDown();
+			
+			IpLeak.rtcDetectionDo(function (ip) {
+				IpLeak.ensureIpBox(ip, "rtc_detection", $('#rtc_placeholder'));
+				$('#rtc_docs').slideDown();
+			});
+		},
+
+		rtcGetPeerConnection: function () {
+			// Based on work by https://github.com/diafygi/webrtc-ips
+
+			var RTCPeerConnection = window.RTCPeerConnection
+						|| window.mozRTCPeerConnection
+						|| window.webkitRTCPeerConnection;
+
+			//bypass naive webrtc blocking
+			if (!RTCPeerConnection) {
+				var iframe = document.createElement('iframe');
+				iframe.style.display = 'none';
+				document.body.appendChild(iframe);
+				var win = iframe.contentWindow;
+				window.RTCPeerConnection = win.RTCPeerConnection;
+				window.mozRTCPeerConnection = win.mozRTCPeerConnection;
+				window.webkitRTCPeerConnection = win.webkitRTCPeerConnection;
+				RTCPeerConnection = window.RTCPeerConnection
+					|| window.mozRTCPeerConnection
+					|| window.webkitRTCPeerConnection;
+			}
+
+			return RTCPeerConnection;
+		},
+
+
+		// Get the IP addresses associated with an account
+		// Thanks: https://github.com/diafygi/webrtc-ips
+
+		rtcDetectionDo: function (callback) {
+
+			try
+			{
+				// Based on work by https://github.com/diafygi/webrtc-ips
+				var ip_dups = {};
+
+				var RTCPeerConnection = IpLeak.rtcGetPeerConnection();
+
+				var mediaConstraints =
+				{
+					optional: [{ RtpDataChannels: true }]
+				};
+
+				var servers = { iceServers: [{ urls: "stun:stun.services.mozilla.com" }] };
+
+				var pc = new RTCPeerConnection(servers, mediaConstraints);
+
+				pc.onicecandidate = function (ice) {
+					// Skip non-candidate events
+					if (ice.candidate) {
+						var parts = ice.candidate.candidate.split(" ");
+						var ip_addr = parts[4];
+
+						// Remove duplicates
+						if (ip_dups[ip_addr] === undefined)
+							callback(ip_addr);
+
+						ip_dups[ip_addr] = true;
+					}
+				};
+
+				// Create a bogus data channel
+				pc.createDataChannel("");
+
+				// Create an offer sdp
+				pc.createOffer(function (result) {
+					// Trigger the stun server request
+					pc.setLocalDescription(result, function () { }, function () { });
+
+				}, function () { });
+			}
+			catch(err) 
+			{
+			}
+			
+		},
+
+		dnsDetection: function () {
+			if(IpLeak.dnsDetectionSession === "")
+				IpLeak.dnsDetectionSession = IpLeak.makeID();
+			
+			IpLeak.dnsDetectionStep++;
+			var url = "https://" + IpLeak.dnsDetectionSession + "-" + IpLeak.dnsDetectionStep + ".ipleak.net/dnsdetection/";
+						
+			$.ajax({
+				type: "GET",
+				url: url,
+				success: function (data, status, settings) {
+					IpLeak.dnsDetectionSuccess++;
+
+					IpLeak.dnsDetectionCountIP = Object.keys(data.ip).length;
+					Object.keys(data.ip).forEach(ip => {
+						var n = data.ip[ip];
+						
+						IpLeak.ensureIpBox(ip, "dns_detection", $("#dnsdetection_results"), function(domIp) {
+							domIp.find(".ip_stats").html("<b>" + n + "</b> hit");
+						});
+					});
+				},
+				error: function (ajaxrequest, ajaxOptions, thrownError) {
+					IpLeak.dnsDetectionFail++;
+					if(thrownError != "")
+						console.log(thrownError);
+				},
+				complete: function () {					
+					var title = "";
+
+					if (IpLeak.dnsDetectionCountIP > 1)
+						title = "DNS Addresses - ";
+					else
+						title = "DNS Address - ";
+
+					title += IpLeak.dnsDetectionCountIP;
+					if (IpLeak.dnsDetectionCountIP == 1)
+						title += " server";
+					else
+						title += " servers";
+					title += " detected";
+
+					title += ", " + IpLeak.dnsDetectionStep + " tests";
+
+					if (IpLeak.dnsDetectionFail != 0)
+						title += ", " + IpLeak.dnsDetectionFail + " errors.";
+
+					$("#dnsdetection_title").text(title);
+
+					// Next
+					var timeout = 1;
+					if(IpLeak.dnsDetectionStep>=100)
+						timeout = 1000;
+					if(IpLeak.dnsDetectionStep>=300)
+						timeout = 0;
+						
+					if(timeout != 0)
+					{
+						setTimeout(function(){
+							IpLeak.dnsDetection();							
+						}, timeout);
+					}
+				}
+			});
+		},
+
+		torrentDetectionUpdate: function () {
+			if (IpLeak.torrentHash == "") {
+				var possible = "abcdef0123456789";
+
+				for (var i = 0; i < 40; i++)
+					IpLeak.torrentHash += possible.charAt(Math.floor(Math.random() * possible.length));
+			}
+			var url = "/?thash=" + IpLeak.torrentHash + "&details=" + (IpLeak.torrentViewRequest ? "1" : "0");		
+			$("#torrent_detection").fadeIn(1000);
+			$("#torrent_detection").load(url, function() {
+				$("#torrent_detection_refresh2").click(function() {
+					IpLeak.torrentDetectionUpdate();
+				});
+
+				$("#torrent_detection_switch").click(function() {
+					IpLeak.torrentViewRequest = !IpLeak.torrentViewRequest;
+					IpLeak.torrentDetectionUpdate();
+				});
+			});
+
+			$("#torrent_detection_refresh").fadeOut(1000);
+
+			if (IpLeak.torrentUpdateInterval == 0)
+				IpLeak.torrentUpdateInterval = setInterval(function () { IpLeak.torrentDetectionUpdate() }, 10000);
+		},
+
+		makeID: function () {
+			var text = "";
+			var possible = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+			for (var i = 0; i < 40; i++)
+				text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+			return text;
+		},
+
+		getHtmlGoogleMap: function(lat, long)
+		{
+			var urlE = "https://maps.google.com/?ie=UTF8&ll=" + lat + "," + long + "&t=h&z=10&output=embed";
+			var urlL = "https://maps.google.com/?ie=UTF8&ll=" + lat + "," + long + "&t=h&z=10&source=embed";
+			return "<iframe id='geolocation_map' src='" + urlE + "'></iframe><br /><div class='docs_center'><small><a href='" + urlL + "' class='map_view_large'>View Larger Map</a></small></div>";
+		},
+
+		ensureIpBox: function (ip, id_prefix, container, readyCallback) {
+			var id = id_prefix + "_" + ip.replaceAll(".", "_").replaceAll(":", "-");
+			var domIp = $("#" + id);
+			if(domIp.length == 0)
+			{
+				// Create
+				var url = "/?mode=ajax&style=dns";
+				url += "&ip=" + ip;
+				var domIp = $("<div class='dns_box'></div>");
+				domIp.attr("id", id);
+
+				domIp.load(url, function (response, status, xhr) {
+					if (status == "error") {
+						var msg = "Sorry but there was an error: ";
+						$("#error").html(msg + xhr.status + " " + xhr.statusText);
+					}
+
+					//var h = $(this).children(":first").attr("data-h");
+					//var i = $(this).children(":first").attr("data-i");
+
+					$(container).append($(this));
+					$(this).hide();
+					$(this).fadeIn(1000);
+
+					IpLeak.initTooltip($(this).find("[data-tooltip]"));
+
+					if(readyCallback) readyCallback(domIp);
+				});
+			}
+			else
+			{
+				if(readyCallback) readyCallback(domIp);
+			}
+			return domIp;			
+		},
+	}
+}(jQuery));
+
+/* -------------------------------
+	JavaScript extension
+-------------------------------*/
+
+String.prototype.capitalize = function() {
+	return this.charAt(0).toUpperCase() + this.slice(1);
+}
+
+String.prototype.replaceAll = function (search, replace, ignoreCase) {
+	if (ignoreCase) {
+		var result = [];
+		var _string = this.toLowerCase();
+		var _search = search.toLowerCase();
+		var start = 0, match, length = _search.length;
+		while ((match = _string.indexOf(_search, start)) >= 0) {
+			result.push(this.slice(start, match));
+			start = match + length;
+		}
+		result.push(this.slice(start));
+	} else {
+		result = this.split(search);
+	}
+	return result.join(replace);
+}
+
+/* -------------------------------
+	Main
+-------------------------------*/
+
+//jQuery(window).on("load", function (e) {
+jQuery(document).ready(function() {
+    IpLeak.start();
+});

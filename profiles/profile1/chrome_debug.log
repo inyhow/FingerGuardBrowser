@@ -1,0 +1,25 @@
+[5628:1740:1122/115333.397:WARNING:chrome_main_delegate.cc(744)] This is Chrome version 130.0.6723.117 (not a warning)
+[5628:1740:1122/115333.532:INFO:chrome_browser_cloud_management_controller.cc(196)] No machine level policy manager exists.
+[1968:5708:1122/115334.229:WARNING:viz_main_impl.cc(85)] VizNullHypothesis is disabled (not a warning)
+[7140:1212:1122/115335.308:WARNING:spdy_session.cc(2975)] Received HEADERS for invalid stream 1
+[5628:1740:1122/115337.106:INFO:CONSOLE(157)] "Uncaught TypeError: Failed to execute 'sendBeacon' on 'Navigator': 1 argument required, but only 0 present.", source: https://bot.sannysoft.com/ (157)
+[5628:1740:1122/115337.107:INFO:CONSOLE(205)] "Uncaught TypeError: Failed to execute 'getUserMedia' on 'Navigator': 3 arguments required, but only 0 present.", source: https://bot.sannysoft.com/ (205)
+[1968:5708:1122/115337.280:ERROR:gles2_cmd_decoder_passthrough.cc(1053)] [GroupMarkerNotSet(crbug.com/242999)!:A0403B008C760000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[5628:1740:1122/115337.317:INFO:CONSOLE(380)] "spooky", source: https://bot.sannysoft.com/fpCollect.min.js (380)
+[5628:1740:1122/115337.321:INFO:CONSOLE(371)] "[GroupMarkerNotSet(crbug.com/242999)!:A0403B008C760000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.", source: https://bot.sannysoft.com/ (371)
+[1968:5708:1122/115337.346:ERROR:gles2_cmd_decoder_passthrough.cc(1053)] [GroupMarkerNotSet(crbug.com/242999)!:A0703B008C760000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[5628:1740:1122/115337.387:INFO:CONSOLE(768)] "[GroupMarkerNotSet(crbug.com/242999)!:A0703B008C760000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.", source: https://bot.sannysoft.com/ (768)
+[5628:1740:1122/115337.679:WARNING:capture_device_ranking.h(255)] Can't initialize the value of media.audio_input.user_preference_ranking because media.default_audio_capture_device isn't registered or is empty
+[5628:1740:1122/115337.679:WARNING:capture_device_ranking.h(255)] Can't initialize the value of media.video_input.user_preference_ranking because media.default_video_capture_Device isn't registered or is empty
+[5628:1740:1122/115337.679:WARNING:capture_device_ranking.h(255)] Can't initialize the value of media.audio_input.user_preference_ranking because media.default_audio_capture_device isn't registered or is empty
+[5628:1740:1122/115337.679:WARNING:capture_device_ranking.h(255)] Can't initialize the value of media.video_input.user_preference_ranking because media.default_video_capture_Device isn't registered or is empty
+[7776:10832:1122/115340.016:INFO:peer_connection_dependency_factory.cc(750)] Running WebRTC with a combined Network and Worker thread.
+[7140:1212:1122/115343.636:WARNING:spdy_session.cc(2975)] Received HEADERS for invalid stream 17
+[5628:1740:1122/115344.709:WARNING:controller_impl.cc(1192)] Background download complete, client: 6, completion type: 0, file size:265059
+[5628:1740:1122/115344.845:WARNING:controller_impl.cc(1192)] Background download complete, client: 6, completion type: 0, file size:5155
+[5628:1740:1122/115345.472:WARNING:controller_impl.cc(1192)] Background download complete, client: 6, completion type: 0, file size:2200227
+[5628:1740:1122/115346.187:WARNING:controller_impl.cc(1192)] Background download complete, client: 6, completion type: 0, file size:2747168
+[5628:1740:1122/115346.874:WARNING:controller_impl.cc(1192)] Background download complete, client: 6, completion type: 0, file size:45161
+[5628:1740:1122/115349.939:WARNING:controller_impl.cc(1192)] Background download complete, client: 6, completion type: 0, file size:4680
+[5628:1740:1122/115350.111:WARNING:controller_impl.cc(1192)] Background download complete, client: 6, completion type: 0, file size:68666040
+[5628:1740:1122/115350.595:WARNING:controller_impl.cc(1192)] Background download complete, client: 6, completion type: 0, file size:118577

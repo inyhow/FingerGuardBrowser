@@ -1,0 +1,42 @@
+{
+   "action": {
+      "default_icon": "assets/icons/icon-34.png"
+   },
+   "background": {
+      "service_worker": "background.bundle.js"
+   },
+   "content_scripts": [ {
+      "css": [ "content.styles.css" ],
+      "js": [ "contentScript.bundle.js" ],
+      "matches": [ "\u003Call_urls>" ]
+   } ],
+   "declarative_net_request": {
+      "rule_resources": [ {
+         "enabled": true,
+         "id": "ruleset_1",
+         "path": "rules.json"
+      } ]
+   },
+   "description": "Powering your web experience with a reliable, endpoint protection layer.",
+   "externally_connectable": {
+      "matches": [ "https://*.reasonlabs.com/*", "https://onlinesecurity-app.com/*", "https://onlinesecurityext.com/*", "https://insights.onlinesecurityext.com/*" ]
+   },
+   "host_permissions": [ "\u003Call_urls>" ],
+   "icons": {
+      "128": "assets/icons/icon-128.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA10JyiI39paY1JQrrgcKc/a3crhw9fcfS7WEKdiMXx2HTMnuJDW6s5qHPS2uifvsTKO4rdFblLV6pPsinyy/EG9F3LDre7E6VoB4RBKDB/c8elvC8Y4rvTskCu2l4hua+uj8XDAOIZyR8FFyij+MztuswLa9tKLKUC6nmD1X1DCeGgSxWgqAAcEqEeFiSzDD2iwnwuqafkVw06DPZLp2U1IX/ukspJJ37cSwRbg/R993bdFcfxpjIQZyZqIUSjENVatzLqvC4TkrD2270GJ6/JWHn+524oc86avP2B6pIjI3JGYeuQszUWJhn6YfbIvE6Y1Fvwh7nOD1Q1qP54MEoxwIDAQAB",
+   "manifest_version": 3,
+   "name": "Online Security",
+   "permissions": [ "storage", "unlimitedStorage", "management", "tabs", "declarativeNetRequest", "downloads", "downloads.shelf", "downloads.open", "notifications", "webNavigation", "contextMenus", "contentSettings", "browsingData", "history", "nativeMessaging", "idle", "alarms", "cookies" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "6.7.1",
+   "version_name": "6.7.1",
+   "web_accessible_resources": [ {
+      "matches": [ "\u003Call_urls>" ],
+      "resources": [ "assets/images/*", "assets/fonts/*", "assets/icons/*", "content.styles.css" ]
+   }, {
+      "matches": [ "https://*.reasonlabs.com/*", "https://onlinesecurity-app.com/*", "https://onlinesecurityext.com/*", "https://insights.onlinesecurityext.com/*" ],
+      "resources": [ "index.html" ]
+   } ]
+}

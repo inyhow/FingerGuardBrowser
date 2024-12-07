@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "priority": 2,
+    "action": {
+      "type": "modifyHeaders",
+      "responseHeaders": [
+        {
+          "header": "access-control-allow-origin",
+          "operation": "set",
+          "value": "*"
+        },
+        {
+          "header": "Access-Control-Allow-Credentials",
+          "operation": "set",
+          "value": "true"
+        },
+        {
+          "header": "Access-Control-Allow-Methods",
+          "operation": "set",
+          "value": "GET,HEAD,OPTIONS,POST,PUT"
+        },
+        {
+          "header": "Access-Control-Allow-Headers",
+          "operation": "set",
+          "value": "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "https://apis.reasonsecurity.com/",
+      "resourceTypes": ["main_frame", "xmlhttprequest"]
+    }
+  }
+]

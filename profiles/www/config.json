@@ -1,0 +1,27 @@
+{
+    "name": "www",
+    "fingerprint": {
+        "navigator": {
+            "userAgent": "Chrome Windows",
+            "platform": "Win32",
+            "hardwareConcurrency": 1,
+            "deviceMemory": 1
+        },
+        "screen": {
+            "width": 1920,
+            "height": 1080,
+            "availWidth": 1920,
+            "availHeight": 1040,
+            "colorDepth": 24,
+            "pixelDepth": 24
+        }
+    },
+    "proxy": "socks5://127.0.0.1080",
+    "timezone": "Africa/Abidjan",
+    "webrtc": "Disable",
+    "canvas_fp": true,
+    "webgl_fp": true,
+    "audio_fp": true,
+    "client_rects_fp": true,
+    "geolocation": null
+}
