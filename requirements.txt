@@ -6,3 +6,6 @@ websockets>=11.0.3
 requests>=2.31.0
 python-dotenv>=1.0.0
 loguru==0.7.0
+pytz>=2023.3
+selenium-stealth>=1.0.6
+flet>=0.11.0

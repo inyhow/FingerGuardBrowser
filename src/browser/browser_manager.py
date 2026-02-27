@@ -143,33 +143,6 @@ class BrowserManager:
             logger.error(f"Error closing browser: {str(e)}")
             raise
 
-    def _generate_user_agent(self, platform: str, browser: str) -> str:
-        """生成指定平台和浏览器的User Agent"""
-        chrome_version = "119.0.0.0"
-        firefox_version = "119.0"
-        
-        platform_info = {
-            "Windows": ("Windows NT 10.0; Win64; x64", "Windows"),
-            "MacOS": ("Macintosh; Intel Mac OS X 10_15_7", "Mac"),
-            "Linux": ("X11; Linux x86_64", "Linux")
-        }
-        
-        if browser.startswith("Chrome"):
-            os_info, _ = platform_info[platform]
-            return f"Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_version} Safari/537.36"
-        elif browser.startswith("Firefox"):
-            os_info, os_name = platform_info[platform]
-            return f"Mozilla/5.0 ({os_info}; rv:{firefox_version}) Gecko/20100101 Firefox/{firefox_version}"
-        elif browser == "Safari 17":
-            return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
-        elif browser == "Edge 119":
-            os_info, _ = platform_info[platform]
-            return f"Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_version} Safari/537.36 Edg/119.0.0.0"
-        
-        # 默认返回Chrome UA
-        os_info, _ = platform_info[platform]
-        return f"Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_version} Safari/537.36"
-
     def is_profile_running(self, profile_name: str) -> bool:
         """检查指定配置的浏览器是否正在运行"""
         profile = self.profile_manager.get_profile(profile_name)

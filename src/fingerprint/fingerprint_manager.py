@@ -3,13 +3,14 @@ import os
 import random
 import platform
 from loguru import logger
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class FingerprintManager:
-    def __init__(self):
+    def __init__(self, driver=None):
+        self.driver = driver
         self.fingerprints_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "profiles"
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "src", "fingerprint", "fingerprints"
         )
         os.makedirs(self.fingerprints_dir, exist_ok=True)
         
@@ -17,12 +18,16 @@ class FingerprintManager:
         self.template = {
             "navigator": {
                 "userAgent": "",
-                "platform": platform.system(),
-                "language": ["en-US", "en"],
+                "platform": "Win32" if platform.system() == "Windows" else "MacIntel" if platform.system() == "Darwin" else "Linux x86_64",
+                "language": "en-US",
                 "languages": ["en-US", "en"],
                 "hardwareConcurrency": 4,
                 "deviceMemory": 8,
-                "webdriver": False
+                "webdriver": False,
+                "vendor": "Google Inc.",
+                "vendorSub": "",
+                "productSub": "20030107",
+                "cookieEnabled": True
             },
             "screen": {
                 "width": 1920,
@@ -43,26 +48,11 @@ class FingerprintManager:
                 "sampleRate": 44100,
                 "channelCount": 2
             },
-            "mediaDevices": {
-                "enabledDevices": ["audioinput", "audiooutput", "videoinput"]
-            },
+            "timezone": "UTC",
             "fonts": [
-                "Arial",
-                "Arial Black",
-                "Arial Unicode MS",
-                "Calibri",
-                "Cambria",
-                "Cambria Math",
-                "Comic Sans MS",
-                "Courier",
-                "Courier New",
-                "Georgia",
-                "Helvetica",
-                "Impact",
-                "Times",
-                "Times New Roman",
-                "Trebuchet MS",
-                "Verdana"
+                "Arial", "Arial Black", "Arial Unicode MS", "Calibri", "Cambria",
+                "Cambria Math", "Comic Sans MS", "Courier", "Courier New", "Georgia",
+                "Helvetica", "Impact", "Times", "Times New Roman", "Trebuchet MS", "Verdana"
             ]
         }
         
@@ -74,7 +64,18 @@ class FingerprintManager:
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36"
         ]
-    
+
+    def inject_js_script(self, script: str, *args) -> Any:
+        """注入并执行JavaScript脚本"""
+        if not self.driver:
+            logger.error("No driver provided for injection")
+            return
+        try:
+            return self.driver.execute_script(script, *args)
+        except Exception as e:
+            logger.error(f"Failed to inject JavaScript: {str(e)}")
+            raise
+
     def create_fingerprint(self, name: str) -> Dict[str, Any]:
         """创建新的指纹配置"""
         fingerprint = self.template.copy()
@@ -103,8 +104,9 @@ class FingerprintManager:
     
     def load_fingerprint(self, name: str) -> Dict[str, Any]:
         """加载指定的指纹配置"""
+        filepath = os.path.join(self.fingerprints_dir, f"{name}.json")
         try:
-            with open(os.path.join(self.fingerprints_dir, f"{name}.json"), "r") as f:
+            with open(filepath, "r") as f:
                 return json.load(f)
         except FileNotFoundError:
             logger.warning(f"Fingerprint {name} not found, creating new one")
@@ -112,45 +114,79 @@ class FingerprintManager:
     
     def save_fingerprint(self, name: str, fingerprint: Dict[str, Any]):
         """保存指纹配置"""
-        with open(os.path.join(self.fingerprints_dir, f"{name}.json"), "w") as f:
+        filepath = os.path.join(self.fingerprints_dir, f"{name}.json")
+        with open(filepath, "w") as f:
             json.dump(fingerprint, f, indent=4)
     
+    def apply_fingerprint(self, fingerprint: Dict[str, Any]):
+        """将指纹应用到当前浏览器"""
+        if not self.driver:
+            return
+
+        script = self.get_injection_script(fingerprint)
+        self.inject_js_script(script)
+
     def get_injection_script(self, fingerprint: Dict[str, Any]) -> str:
         """生成注入浏览器的JavaScript代码"""
+        nav = fingerprint.get('navigator', {})
+        screen = fingerprint.get('screen', {})
+        webgl = fingerprint.get('webgl', {})
+
         return f"""
             // 修改navigator属性
             Object.defineProperties(navigator, {{
-                userAgent: {{ value: "{fingerprint['navigator']['userAgent']}" }},
-                platform: {{ value: "{fingerprint['navigator']['platform']}" }},
-                hardwareConcurrency: {{ value: {fingerprint['navigator']['hardwareConcurrency']} }},
-                deviceMemory: {{ value: {fingerprint['navigator']['deviceMemory']} }},
-                webdriver: {{ value: {str(fingerprint['navigator']['webdriver']).lower()} }}
+                userAgent: {{ value: {json.dumps(nav.get('userAgent', ''))} }},
+                platform: {{ value: {json.dumps(nav.get('platform', 'Win32'))} }},
+                hardwareConcurrency: {{ value: {nav.get('hardwareConcurrency', 4)} }},
+                deviceMemory: {{ value: {nav.get('deviceMemory', 8)} }},
+                webdriver: {{ value: {str(nav.get('webdriver', False)).lower()} }},
+                language: {{ value: {json.dumps(nav.get('language', 'en-US'))} }},
+                languages: {{ value: {json.dumps(nav.get('languages', ['en-US', 'en']))} }}
             }});
             
             // 修改screen属性
             Object.defineProperties(screen, {{
-                width: {{ value: {fingerprint['screen']['width']} }},
-                height: {{ value: {fingerprint['screen']['height']} }},
-                availWidth: {{ value: {fingerprint['screen']['availWidth']} }},
-                availHeight: {{ value: {fingerprint['screen']['availHeight']} }},
-                colorDepth: {{ value: {fingerprint['screen']['colorDepth']} }},
-                pixelDepth: {{ value: {fingerprint['screen']['pixelDepth']} }}
+                width: {{ value: {screen.get('width', 1920)} }},
+                height: {{ value: {screen.get('height', 1080)} }},
+                availWidth: {{ value: {screen.get('availWidth', 1920)} }},
+                availHeight: {{ value: {screen.get('availHeight', 1040)} }},
+                colorDepth: {{ value: {screen.get('colorDepth', 24)} }},
+                pixelDepth: {{ value: {screen.get('pixelDepth', 24)} }}
             }});
+
+            // 修改时区
+            if ({json.dumps(fingerprint.get('timezone', 'UTC'))}) {{
+                const timezone = {json.dumps(fingerprint.get('timezone', 'UTC'))};
+                const originalDateTimeFormat = Intl.DateTimeFormat;
+                Intl.DateTimeFormat = function(locale, options) {{
+                    if (options && !options.timeZone) {{
+                        options.timeZone = timezone;
+                    }}
+                    return new originalDateTimeFormat(locale, options);
+                }};
+                Intl.DateTimeFormat.prototype = originalDateTimeFormat.prototype;
+                Intl.DateTimeFormat.supportedLocalesOf = originalDateTimeFormat.supportedLocalesOf;
+            }}
             
             // WebGL指纹保护
             const getParameterProxyHandler = {{
                 apply: function(target, thisArg, argumentsList) {{
                     const param = argumentsList[0];
                     if (param === 37445) {{ // UNMASKED_VENDOR_WEBGL
-                        return "{fingerprint['webgl']['unmaskedVendor']}";
+                        return {json.dumps(webgl.get('unmaskedVendor', webgl.get('vendor', 'Google Inc.')))};
                     }}
                     if (param === 37446) {{ // UNMASKED_RENDERER_WEBGL
-                        return "{fingerprint['webgl']['unmaskedRenderer']}";
+                        return {json.dumps(webgl.get('unmaskedRenderer', webgl.get('renderer', 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 SUPER Direct3D11 vs_5_0 ps_5_0)')))};
                     }}
                     return target.apply(thisArg, argumentsList);
                 }}
             }};
             
+            if (window.WebGLRenderingContext) {{
+                const originalGetParameter = WebGLRenderingContext.prototype.getParameter;
+                WebGLRenderingContext.prototype.getParameter = new Proxy(originalGetParameter, getParameterProxyHandler);
+            }}
+
             // Canvas指纹保护
             const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
             HTMLCanvasElement.prototype.toDataURL = function(type) {{
@@ -161,19 +197,21 @@ class FingerprintManager:
             }};
             
             // 字体指纹保护
-            Object.defineProperty(document, 'fonts', {{
-                get: () => {{
-                    const fonts = {fingerprint['fonts']};
-                    return {{
-                        ready: Promise.resolve(),
-                        check: () => true,
-                        load: () => Promise.resolve(),
-                        entries: () => [],
-                        forEach: () => {{}},
-                        *[Symbol.iterator]() {{
-                            yield* fonts;
-                        }}
-                    }};
-                }}
-            }});
+            if (document.fonts) {{
+                const fonts = {json.dumps(fingerprint.get('fonts', []))};
+                Object.defineProperty(document, 'fonts', {{
+                    get: () => {{
+                        return {{
+                            ready: Promise.resolve(),
+                            check: () => true,
+                            load: () => Promise.resolve(),
+                            entries: () => [],
+                            forEach: () => {{}},
+                            *[Symbol.iterator]() {{
+                                yield* fonts;
+                            }}
+                        }};
+                    }}
+                }});
+            }}
         """

@@ -467,7 +467,7 @@ class MainWindow(QMainWindow):
             data = dialog.get_profile_data()
             try:
                 self.browser_manager.create_profile(
-                    name=self.name_edit.text(),
+                    name=dialog.name_edit.text(),
                     fingerprint=data["fingerprint"],
                     proxy=data["proxy"],
                     timezone=data["timezone"],
