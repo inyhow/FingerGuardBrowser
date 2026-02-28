@@ -2,6 +2,7 @@ import json
 import os
 import random
 import platform
+import copy
 from loguru import logger
 from typing import Dict, Any, Optional
 
@@ -69,7 +70,7 @@ class FingerprintManager:
 
     def create_fingerprint(self, name: str) -> Dict[str, Any]:
         """创建商业级指纹配置"""
-        fingerprint = self.template.copy()
+        fingerprint = copy.deepcopy(self.template)
         
         # 随机化
         fingerprint["navigator"]["userAgent"] = random.choice(self.user_agents)

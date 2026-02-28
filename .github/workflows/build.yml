@@ -2,7 +2,8 @@ name: Build and Test FingerGuard Browser
 
 on:
   push:
-    branches: [ "main", "commercial-fingerprint-browser-upgrade", "refactor-fingerprint-and-fix-ui-bug" ]
+    branches: [ "main", "commercial-fingerprint-browser-upgrade" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
 
@@ -55,3 +56,22 @@ jobs:
       with:
         name: FingerGuardBrowser-${{ runner.os }}
         path: dist/
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: release_assets
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          release_assets/FingerGuardBrowser-Linux/FingerGuardBrowser-Linux
+          release_assets/FingerGuardBrowser-Windows/FingerGuardBrowser-Windows.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
