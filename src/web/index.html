@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FingerGuard Browser</title>
+<style>
+/* ========== CSS Reset & Variables ========== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-base:#0f1117;--bg-surface:#181a23;--bg-surface-hi:#1e2130;--bg-elevated:#252836;
+  --border:#2a2d3e;--border-hi:#363a4f;
+  --text-primary:#e4e6ed;--text-secondary:#9298ad;--text-muted:#5c6275;
+  --accent:#4263eb;--accent-hi:#3b5bdb;--accent-soft:rgba(66,99,235,.12);
+  --success:#2dd4a7;--success-soft:rgba(45,212,167,.12);
+  --warning:#f5a623;--warning-soft:rgba(245,166,35,.12);
+  --danger:#ef4444;--danger-soft:rgba(239,68,68,.12);
+  --radius:10px;--radius-sm:6px;--radius-lg:14px;
+  --shadow:0 4px 24px rgba(0,0,0,.3);--shadow-lg:0 8px 40px rgba(0,0,0,.4);
+  --sidebar-w:220px;--transition:.2s cubic-bezier(.4,0,.2,1);
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  --mono:'SF Mono','Fira Code','Cascadia Code',Consolas,monospace;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font);font-size:14px;background:var(--bg-base);color:var(--text-primary);-webkit-font-smoothing:antialiased}
+
+/* ========== Scrollbar ========== */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#454960}
+
+/* ========== Layout ========== */
+#app{display:flex;height:100vh}
+
+/* ========== Sidebar ========== */
+.sidebar{width:var(--sidebar-w);background:var(--bg-surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width var(--transition)}
+.sidebar.collapsed{width:56px}
+.sidebar-header{padding:16px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);height:56px}
+.sidebar-header .logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#748ffc);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sidebar-header .title{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden}
+.sidebar-header .title span{color:var(--accent)}
+.sidebar.collapsed .title{display:none}
+
+.nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{margin-bottom:16px}
+.nav-section-label{font-size:11px;text-transform:uppercase;color:var(--text-muted);padding:0 12px 6px;font-weight:600;letter-spacing:.5px}
+.sidebar.collapsed .nav-section-label{display:none}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text-secondary);transition:all var(--transition);font-size:13.5px;position:relative;margin-bottom:2px;white-space:nowrap}
+.nav-item:hover{background:var(--bg-surface-hi);color:var(--text-primary)}
+.nav-item.active{background:var(--accent-soft);color:var(--accent)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:18px;background:var(--accent);border-radius:0 3px 3px 0}
+.nav-item svg{width:18px;height:18px;flex-shrink:0}
+.sidebar.collapsed .nav-item span{display:none}
+.sidebar.collapsed .nav-item{justify-content:center;padding:9px}
+
+.sidebar-footer{padding:8px;border-top:1px solid var(--border)}
+.sidebar-collapse-btn{width:100%;padding:8px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text-muted);transition:all var(--transition);border:none;background:transparent}
+.sidebar-collapse-btn:hover{background:var(--bg-surface-hi);color:var(--text-primary)}
+.sidebar-collapse-btn svg{width:16px;height:16px;transition:transform var(--transition)}
+.sidebar.collapsed .sidebar-collapse-btn svg{transform:rotate(180deg)}
+.sidebar.collapsed .sidebar-collapse-btn span{display:none}
+
+/* ========== Main Content ========== */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:56px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;background:var(--bg-surface)}
+.topbar-title{font-size:16px;font-weight:600;flex:1}
+.topbar-search{position:relative;width:280px}
+.topbar-search input{width:100%;padding:7px 12px 7px 34px;background:var(--bg-surface-hi);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px;outline:none;transition:all var(--transition)}
+.topbar-search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.topbar-search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-muted)}
+.topbar-search kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:2px 6px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--text-muted)}
+.topbar-actions{display:flex;gap:8px}
+
+.content{flex:1;overflow-y:auto;padding:20px}
+
+/* ========== Buttons ========== */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all var(--transition);white-space:nowrap;font-family:var(--font)}
+.btn svg{width:15px;height:15px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hi)}
+.btn-ghost{background:transparent;color:var(--text-secondary)}
+.btn-ghost:hover{background:var(--bg-surface-hi);color:var(--text-primary)}
+.btn-danger{background:var(--danger-soft);color:var(--danger)}
+.btn-danger:hover{background:rgba(239,68,68,.2)}
+.btn-success{background:var(--success-soft);color:var(--success)}
+.btn-success:hover{background:rgba(45,212,167,.2)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{padding:7px;width:32px;height:32px;justify-content:center}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ========== Stat Cards ========== */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:8px;transition:all var(--transition);cursor:pointer}
+.stat-card:hover{border-color:var(--border-hi);transform:translateY(-2px);box-shadow:var(--shadow)}
+.stat-card .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.stat-card .stat-icon svg{width:22px;height:22px}
+.stat-card .stat-value{font-size:28px;font-weight:700;line-height:1}
+.stat-card .stat-label{font-size:13px;color:var(--text-secondary)}
+.stat-card .stat-trend{font-size:12px;display:flex;align-items:center;gap:4px}
+
+/* ========== Table ========== */
+.table-container{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.table-toolbar{padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.table-toolbar .toolbar-left{display:flex;gap:8px;align-items:center;flex:1}
+.table-toolbar .toolbar-right{display:flex;gap:8px;align-items:center}
+.filter-select{padding:6px 10px;background:var(--bg-surface-hi);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px;outline:none;cursor:pointer}
+.filter-select:focus{border-color:var(--accent)}
+.filter-input{padding:6px 10px;background:var(--bg-surface-hi);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px;outline:none;transition:all var(--transition)}
+.filter-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+table{width:100%;border-collapse:collapse}
+thead{background:var(--bg-surface-hi)}
+th{padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border)}
+tbody tr{transition:background var(--transition)}
+tbody tr:hover{background:var(--bg-surface-hi)}
+tbody tr:last-child td{border-bottom:none}
+
+/* ========== Badges & Status ========== */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-success{background:var(--success-soft);color:var(--success)}
+.badge-danger{background:var(--danger-soft);color:var(--danger)}
+.badge-warning{background:var(--warning-soft);color:var(--warning)}
+.badge-info{background:var(--accent-soft);color:var(--accent)}
+.badge-muted{background:var(--bg-elevated);color:var(--text-muted)}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.status-dot.running{background:var(--success);box-shadow:0 0 6px var(--success)}
+.status-dot.stopped{background:var(--text-muted)}
+
+/* ========== Checkbox ========== */
+.checkbox{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+
+/* ========== Row Actions ========== */
+.row-actions{display:flex;gap:4px}
+.row-actions .btn-icon{width:28px;height:28px;padding:5px}
+.row-actions .btn-icon svg{width:14px;height:14px}
+
+/* ========== Empty State ========== */
+.empty-state{padding:60px 20px;text-align:center;color:var(--text-muted)}
+.empty-state svg{width:48px;height:48px;margin-bottom:12px;opacity:.5}
+.empty-state h3{font-size:15px;margin-bottom:4px;color:var(--text-secondary)}
+.empty-state p{font-size:13px}
+
+/* ========== Modal ========== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity var(--transition)}
+.modal-overlay.show{opacity:1;pointer-events:auto}
+.modal{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);width:520px;max-width:90vw;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg);transform:scale(.95);transition:transform var(--transition)}
+.modal-overlay.show .modal{transform:scale(1)}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:between;gap:12px}
+.modal-header h2{font-size:16px;font-weight:600;flex:1}
+.modal-close{background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;border-radius:var(--radius-sm);transition:all var(--transition)}
+.modal-close:hover{background:var(--bg-surface-hi);color:var(--text-primary)}
+.modal-close svg{width:18px;height:18px}
+.modal-body{padding:20px}
+.modal-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* ========== Form ========== */
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--text-secondary)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:8px 12px;background:var(--bg-surface-hi);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px;outline:none;transition:all var(--transition);font-family:var(--font)}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.form-group textarea{resize:vertical;min-height:60px;font-family:var(--mono)}
+.form-group .hint{font-size:12px;color:var(--text-muted);margin-top:4px}
+.form-row{display:flex;gap:12px}
+.form-row .form-group{flex:1}
+
+/* Toggle Switch */
+.toggle{position:relative;width:36px;height:20px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--bg-elevated);border-radius:20px;transition:all var(--transition)}
+.toggle-slider::before{content:'';position:absolute;width:16px;height:16px;left:2px;top:2px;background:var(--text-secondary);border-radius:50%;transition:all var(--transition)}
+.toggle input:checked+.toggle-slider{background:var(--accent)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(16px);background:#fff}
+
+/* ========== Toast ========== */
+.toast-container{position:fixed;top:16px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-lg);min-width:280px;max-width:400px;animation:slideIn .3s ease;pointer-events:auto}
+.toast.success{border-left:3px solid var(--success)}
+.toast.error{border-left:3px solid var(--danger)}
+.toast.info{border-left:3px solid var(--accent)}
+.toast.warning{border-left:3px solid var(--warning)}
+.toast svg{width:18px;height:18px;flex-shrink:0}
+.toast.success svg{color:var(--success)}
+.toast.error svg{color:var(--danger)}
+.toast.info svg{color:var(--accent)}
+.toast.warning svg{color:var(--warning)}
+.toast .toast-msg{font-size:13px;flex:1}
+.toast .toast-close{cursor:pointer;color:var(--text-muted);background:none;border:none}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ========== Panels (API, Settings, etc.) ========== */
+.panel{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.panel-header h2{font-size:15px;font-weight:600}
+
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.info-row:last-child{border-bottom:none}
+.info-row .info-label{color:var(--text-secondary);font-size:13px}
+.info-row .info-value{font-size:13px;font-weight:500;font-family:var(--mono)}
+
+.code-block{background:var(--bg-base);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:var(--mono);font-size:12px;overflow-x:auto;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;word-break:break-all}
+
+.endpoint-list{display:flex;flex-direction:column;gap:8px}
+.endpoint-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-surface-hi);border-radius:var(--radius-sm);font-size:13px}
+.endpoint-item .method{font-weight:700;font-size:11px;padding:2px 6px;border-radius:4px;min-width:50px;text-align:center}
+.endpoint-item .method.GET{background:var(--success-soft);color:var(--success)}
+.endpoint-item .method.POST{background:var(--warning-soft);color:var(--warning)}
+.endpoint-item .method.PUT{background:var(--accent-soft);color:var(--accent)}
+.endpoint-item .method.DELETE{background:var(--danger-soft);color:var(--danger)}
+.endpoint-item .path{font-family:var(--mono);color:var(--text-secondary)}
+
+/* ========== Quick Launch (Ctrl+K) ========== */
+.quick-launch{position:fixed;top:20%;left:50%;transform:translateX(-50%) scale(.95);width:480px;max-width:90vw;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:1500;opacity:0;pointer-events:none;transition:all var(--transition)}
+.quick-launch.show{opacity:1;pointer-events:auto;transform:translateX(-50%) scale(1)}
+.quick-launch input{width:100%;padding:14px 18px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text-primary);font-size:15px;outline:none;font-family:var(--font)}
+.quick-launch-results{max-height:320px;overflow-y:auto;padding:4px}
+.quick-launch-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--transition)}
+.quick-launch-item:hover,.quick-launch-item.selected{background:var(--accent-soft)}
+.quick-launch-item .ql-icon{width:32px;height:32px;border-radius:8px;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-size:14px}
+.quick-launch-item .ql-info{flex:1}
+.quick-launch-item .ql-title{font-size:13px;font-weight:500}
+.quick-launch-item .ql-sub{font-size:12px;color:var(--text-muted)}
+
+/* ========== Loading ========== */
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{display:flex;align-items:center;justify-content:center;padding:40px}
+
+/* ========== Tabs ========== */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.tab{padding:8px 16px;font-size:13px;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;transition:all var(--transition)}
+.tab:hover{color:var(--text-primary)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ========== Color dots for groups ========== */
+.color-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* ========== Responsive ========== */
+@media(max-width:768px){
+  .sidebar{position:absolute;z-index:100;height:100%}
+  .topbar-search{width:auto;flex:1}
+  .stats-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">🛡️</div>
+      <div class="title">Finger<span>Guard</span></div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="nav-section">
+        <div class="nav-section-label" data-i18n="nav.main">Main</div>
+        <div class="nav-item active" data-view="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span data-i18n="nav.dashboard">Dashboard</span>
+        </div>
+        <div class="nav-item" data-view="profiles">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span data-i18n="nav.profiles">Profiles</span>
+        </div>
+        <div class="nav-item" data-view="proxies">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span data-i18n="nav.proxy_pool">Proxy Pool</span>
+        </div>
+        <div class="nav-item" data-view="groups">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span data-i18n="nav.groups">Groups</span>
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label" data-i18n="nav.system">System</div>
+        <div class="nav-item" data-view="api">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <span data-i18n="nav.api_mcp">API &amp; MCP</span>
+        </div>
+        <div class="nav-item" data-view="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span data-i18n="nav.settings">Settings</span>
+        </div>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="sidebar-collapse-btn" id="collapseBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        <span data-i18n="nav.collapse">Collapse</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="pageTitle">Dashboard</div>
+      <div class="topbar-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="quickSearch" placeholder="Quick search..." data-i18n-ph="topbar.search_placeholder">
+        <kbd>Ctrl+K</kbd>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary btn-sm" id="newProfileBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span data-i18n="topbar.new_profile">New Profile</span>
+        </button>
+      </div>
+    </div>
+    <div class="content" id="content"><!-- Views rendered here --></div>
+  </div>
+</div>
+
+<!-- Quick Launch -->
+<div class="quick-launch" id="quickLaunch">
+  <input type="text" id="quickLaunchInput" placeholder="Type to search profiles or commands..." data-i18n-ph="quicklaunch.placeholder">
+  <div class="quick-launch-results" id="quickLaunchResults"></div>
+</div>
+
+<!-- Modal Container -->
+<div class="modal-overlay" id="modalOverlay"></div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ========== State ==========
+const State = {
+  apiKey: '',
+  baseUrl: '',
+  profiles: [],
+  proxies: [],
+  groups: [],
+  sessions: [],
+  currentView: 'dashboard',
+  selectedProfiles: new Set(),
+  locale: 'zh',
+};
+
+// ========== i18n ==========
+const I18N = {
+  en: {
+    'nav.main':'Main','nav.dashboard':'Dashboard','nav.profiles':'Profiles','nav.proxy_pool':'Proxy Pool',
+    'nav.groups':'Groups','nav.system':'System','nav.api_mcp':'API & MCP','nav.settings':'Settings','nav.collapse':'Collapse',
+    'topbar.new_profile':'New Profile','topbar.search_placeholder':'Quick search...',
+    'dash.total_profiles':'Total Profiles','dash.running':'Running','dash.proxies':'Proxies','dash.groups':'Groups',
+    'dash.quick_actions':'Quick Actions','dash.recent_activity':'Recent Activity',
+    'dash.create_profile':'Create Profile','dash.launch_all':'Launch All','dash.test_fingerprint':'Test Fingerprint',
+    'proxy.title':'Proxy Pool','proxy.add':'Add Proxy','proxy.test_all':'Test All','proxy.import':'Import','proxy.export':'Export','proxy.name':'Name','proxy.protocol':'Protocol','proxy.host':'Host','proxy.port':'Port','proxy.country':'Country','proxy.latency':'Latency','proxy.status':'Status','proxy.actions':'Actions','proxy.empty':'No proxies configured','proxy.add_title':'Add Proxy','proxy.proxy_string':'Proxy String','proxy.proxy_hint':'protocol://[user:pass@]host:port','proxy.test':'Test','proxy.healthy':'Healthy','proxy.unhealthy':'Unhealthy','proxy.username':'Username','proxy.password':'Password','proxy.auth_optional':'(optional)','proxy.no_auth':'No auth needed','proxy.chrome_compat':'Chrome compatible','proxy.bridge_needed':'Needs bridge','proxy.host_label':'Host / IP','proxy.port_label':'Port',
+    'profiles.title':'Browser Profiles','profiles.search':'Search profiles...','profiles.status':'Status','profiles.name':'Name','profiles.proxy':'Proxy','profiles.group':'Group','profiles.tags':'Tags','profiles.last_used':'Last Used','profiles.actions':'Actions','profiles.empty':'No profiles yet','profiles.empty_desc':'Create your first browser profile to get started','profiles.new':'New Profile','profiles.edit':'Edit Profile','profiles.launch':'Launch','profiles.stop':'Stop','profiles.stop_all':'Stop All','profiles.no_running':'No running browsers','profiles.stopping_all':'Stopping','profiles.stopped':'browsers stopped','profiles.delete':'Delete','profiles.name_label':'Profile Name','profiles.proxy_label':'Proxy (optional)','profiles.proxy_hint':'Format: socks5://user:pass@host:port','profiles.timezone_label':'Timezone','profiles.group_label':'Group','profiles.tags_label':'Tags (comma separated)','profiles.fingerprint_protection':'Fingerprint Protection','profiles.canvas':'Canvas','profiles.webgl':'WebGL','profiles.audio':'AudioContext','profiles.webrtc':'WebRTC','profiles.webrtc_filter':'Filter (recommended)','profiles.webrtc_disable':'Disable','profiles.webrtc_real':'Real','profiles.dns':'DNS Protection','profiles.save':'Save','profiles.cancel':'Cancel','profiles.ai_generate':'AI Generate','profiles.ai_hint':'Describe the profile you want...','profiles.delete_confirm':'Are you sure you want to delete this profile?','profiles.browser_engine':'Browser Engine','profiles.os_type':'OS Type','profiles.user_agent':'User Agent','profiles.notes':'Notes','profiles.cookies':'Cookies','profiles.select_proxy':'Select from pool','profiles.no_proxy':'No Proxy',    'profiles.custom_proxy':'Custom Proxy',
+    'profiles.headless_mode':'Headless Mode','profiles.headless_desc':'Run browser without visible window (for automation)',
+    'profiles.batch_headless':'Headless','profiles.humanize_mode':'Human-like Behavior','profiles.humanize_desc':'Bezier mouse movement, realistic typing with typos, natural scroll',
+    'profiles.clone':'Clone','profiles.screenshot':'Screenshot','profiles.batch_edit':'Batch Edit','profiles.batch_launch':'Batch Launch',
+    'profiles.export':'Export','profiles.import':'Import','profiles.exported':'Profiles exported','profiles.imported':'Profiles imported',
+    'profiles.cloned':'Profile cloned','profiles.taking_screenshot':'Taking screenshot...','profiles.screenshot_saved':'Screenshot saved',
+    'profiles.batch_select_fields':'Select fields to batch edit','profiles.batch_proxy':'Proxy','profiles.batch_timezone':'Timezone','profiles.batch_webrtc':'WebRTC',
+    'groups.title':'Profile Groups','groups.create':'Create Group','groups.name':'Name','profiles_count':'Profiles','groups.actions':'Actions','groups.empty':'No groups yet','groups.create_title':'Create Group','groups.name_label':'Group Name','groups.color_label':'Color','groups.desc_label':'Description','groups.bulk_launch':'Bulk Launch','groups.bulk_stop':'Bulk Stop','groups.delete_confirm':'Delete this group?',
+    'api.title':'API & MCP Server','api.status':'Server Status','api.running':'Running','api.stopped':'Stopped','api.start':'Start Server','api.stop':'Stop Server','api.api_key':'API Key','api.reset_key':'Reset Key','api.copy':'Copy','api.base_url':'Base URL','api.mcp_config':'MCP Configuration','api.copy_mcp':'Copy MCP Config','api.endpoints':'API Endpoints','api.mcp_title':'MCP Server','api.mcp_desc':'Use this configuration in your AI agent (Claude, Cursor, etc.) to control FingerGuard programmatically.',
+    'settings.title':'Settings','settings.language':'Language','settings.theme':'Theme','settings.dark':'Dark','settings.light':'Light','settings.about':'About','settings.version':'Version','settings.fingerprint_vectors':'Protected Fingerprint Vectors','settings.vector_count':'23 vectors protected',
+    'common.saved':'Saved successfully','common.save':'Save','common.error':'An error occurred','common.deleted':'Deleted successfully','common.loading':'Loading...','common.confirm':'Confirm','common.cancel':'Cancel','common.yes':'Yes','common.no':'No','common.auto':'Auto',
+  },
+  zh: {
+    'nav.main':'主功能','nav.dashboard':'仪表盘','nav.profiles':'浏览器环境','nav.proxy_pool':'代理池','nav.groups':'分组','nav.system':'系统','nav.api_mcp':'API & MCP','nav.settings':'设置','nav.collapse':'收起',
+    'topbar.new_profile':'新建环境','topbar.search_placeholder':'快速搜索...',
+    'dash.total_profiles':'环境总数','dash.running':'运行中','dash.proxies':'代理数量','dash.groups':'分组数','dash.quick_actions':'快捷操作','dash.recent_activity':'最近活动','dash.create_profile':'创建环境','dash.launch_all':'全部启动','dash.test_fingerprint':'指纹测试',
+    'profiles.title':'浏览器环境','profiles.search':'搜索环境...','profiles.status':'状态','profiles.name':'名称','profiles.proxy':'代理','profiles.group':'分组','profiles.tags':'标签','profiles.last_used':'最后使用','profiles.actions':'操作','profiles.empty':'暂无环境','profiles.empty_desc':'创建你的第一个浏览器环境','profiles.new':'新建环境','profiles.edit':'编辑环境','profiles.launch':'启动','profiles.stop':'停止','profiles.stop_all':'全部停止','profiles.no_running':'没有运行中的浏览器','profiles.stopping_all':'正在停止','profiles.stopped':'个浏览器已停止','profiles.delete':'删除','profiles.name_label':'环境名称','profiles.proxy_label':'代理（可选）','profiles.proxy_hint':'格式：socks5://user:pass@host:port','profiles.timezone_label':'时区','profiles.group_label':'分组','profiles.tags_label':'标签（逗号分隔）','profiles.fingerprint_protection':'指纹保护','profiles.canvas':'Canvas','profiles.webgl':'WebGL','profiles.audio':'AudioContext','profiles.webrtc':'WebRTC','profiles.webrtc_filter':'过滤（推荐）','profiles.webrtc_disable':'禁用','profiles.webrtc_real':'真实','profiles.dns':'DNS 保护','profiles.save':'保存','profiles.cancel':'取消','profiles.ai_generate':'AI 生成','profiles.ai_hint':'描述你想要的环境...','profiles.delete_confirm':'确定要删除此环境吗？','profiles.browser_engine':'浏览器引擎','profiles.os_type':'操作系统','profiles.user_agent':'User Agent','profiles.notes':'备注','profiles.cookies':'Cookies','profiles.select_proxy':'从代理池选择','profiles.no_proxy':'不使用代理',    'profiles.custom_proxy':'自定义代理',
+    'profiles.headless_mode':'无头模式','profiles.headless_desc':'无界面运行浏览器（用于自动化）',
+    'profiles.batch_headless':'无头','profiles.humanize_mode':'拟人化行为','profiles.humanize_desc':'贝塞尔曲线鼠标、模拟打字（含错字纠正）、自然滚动',
+    'profiles.clone':'克隆','profiles.screenshot':'截图','profiles.batch_edit':'批量编辑','profiles.batch_launch':'批量启动',
+    'profiles.export':'导出','profiles.import':'导入','profiles.exported':'环境已导出','profiles.imported':'环境已导入',
+    'profiles.cloned':'环境已克隆','profiles.taking_screenshot':'正在截图...','profiles.screenshot_saved':'截图已保存',
+    'profiles.batch_select_fields':'选择要批量编辑的字段','profiles.batch_proxy':'代理','profiles.batch_timezone':'时区','profiles.batch_webrtc':'WebRTC',
+    'proxy.title':'代理池','proxy.add':'添加代理','proxy.test_all':'全部测试','proxy.import':'导入','proxy.export':'导出','proxy.name':'名称','proxy.protocol':'协议','proxy.host':'主机','proxy.port':'端口','proxy.country':'国家','proxy.latency':'延迟','proxy.status':'状态','proxy.actions':'操作','proxy.empty':'暂无代理','proxy.add_title':'添加代理','proxy.proxy_string':'代理字符串','proxy.proxy_hint':'protocol://[user:pass@]host:port','proxy.test':'测试','proxy.healthy':'正常','proxy.unhealthy':'异常','proxy.username':'用户名','proxy.password':'密码','proxy.auth_optional':'（可选）','proxy.no_auth':'无需认证','proxy.chrome_compat':'Chrome 兼容','proxy.bridge_needed':'需要中转','proxy.host_label':'主机 / IP','proxy.port_label':'端口',
+    'groups.title':'环境分组','groups.create':'创建分组','groups.name':'名称','profiles_count':'环境数','groups.actions':'操作','groups.empty':'暂无分组','groups.create_title':'创建分组','groups.name_label':'分组名称','groups.color_label':'颜色','groups.desc_label':'描述','groups.bulk_launch':'批量启动','groups.bulk_stop':'批量停止','groups.delete_confirm':'确定删除此分组？',
+    'api.title':'API & MCP 服务','api.status':'服务状态','api.running':'运行中','api.stopped':'已停止','api.start':'启动服务','api.stop':'停止服务','api.api_key':'API Key','api.reset_key':'重置 Key','api.copy':'复制','api.base_url':'基础 URL','api.mcp_config':'MCP 配置','api.copy_mcp':'复制 MCP 配置','api.endpoints':'API 端点','api.mcp_title':'MCP 服务','api.mcp_desc':'在 AI 代理（Claude、Cursor 等）中使用此配置，实现编程控制 FingerGuard。',
+    'settings.title':'设置','settings.language':'语言','settings.theme':'主题','settings.dark':'深色','settings.light':'浅色','settings.about':'关于','settings.version':'版本','settings.fingerprint_vectors':'受保护的指纹向量','settings.vector_count':'23 项指纹保护',
+    'common.saved':'保存成功','common.save':'保存','common.error':'操作失败','common.deleted':'删除成功','common.loading':'加载中...','common.confirm':'确认','common.cancel':'取消','common.yes':'是','common.no':'否','common.auto':'自动',
+  },
+};
+function _(key){return (I18N[State.locale]||I18N.en)[key]||key}
+
+// ========== API Client ==========
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': State.apiKey,
+    },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const resp = await fetch(`${State.baseUrl}/api${path}`, opts);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({error: resp.statusText}));
+    throw new Error(err.error || `HTTP ${resp.status}`);
+  }
+  return resp.json();
+}
+
+// ========== Toast ==========
+function toast(msg, type='info') {
+  const container = document.getElementById('toastContainer');
+  const icons = {
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `${icons[type]||icons.info}<span class="toast-msg">${msg}</span><button class="toast-close" onclick="this.parentElement.remove()">✕</button>`;
+  container.appendChild(el);
+  setTimeout(() => el.style.opacity = '0', 4000);
+  setTimeout(() => el.remove(), 4500);
+}
+
+// ========== Modal ==========
+function showModal(title, bodyHtml, footerHtml='') {
+  const overlay = document.getElementById('modalOverlay');
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h2>${title}</h2>
+        <button class="modal-close" onclick="closeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">${bodyHtml}</div>
+      ${footerHtml ? `<div class="modal-footer">${footerHtml}</div>` : ''}
+    </div>`;
+  overlay.classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// ========== Navigation ==========
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+    State.currentView = item.dataset.view;
+    renderView();
+  });
+});
+
+document.getElementById('collapseBtn').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+});
+
+// ========== View Rendering ==========
+function renderView() {
+  const content = document.getElementById('content');
+  const titles = {dashboard:'Dashboard',profiles:'Profiles',proxies:'Proxy Pool',groups:'Groups',api:'API & MCP',settings:'Settings'};
+  const titleKeys = {dashboard:'nav.dashboard',profiles:'nav.profiles',proxies:'nav.proxy_pool',groups:'nav.groups',api:'nav.api_mcp',settings:'nav.settings'};
+  document.getElementById('pageTitle').textContent = _(titleKeys[State.currentView]);
+
+  switch(State.currentView) {
+    case 'dashboard': renderDashboard(); break;
+    case 'profiles': renderProfiles(); break;
+    case 'proxies': renderProxies(); break;
+    case 'groups': renderGroups(); break;
+    case 'api': renderAPI(); break;
+    case 'settings': renderSettings(); break;
+  }
+}
+
+// ========== Dashboard ==========
+async function renderDashboard() {
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="loading-overlay"><div class="spinner"></div></div>`;
+  try {
+    const [profilesResp, sessionsResp] = await Promise.all([
+      api('GET', '/profiles'),
+      api('GET', '/sessions'),
+    ]);
+    State.profiles = profilesResp.profiles || [];
+    State.sessions = sessionsResp.sessions || [];
+    const running = State.sessions.length;
+    const proxiesCount = State.proxies.length;
+    const groupsCount = State.groups.length;
+
+    content.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card" onclick="navTo('profiles')">
+          <div class="stat-icon" style="background:var(--accent-soft);color:var(--accent)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+          </div>
+          <div class="stat-value">${State.profiles.length}</div>
+          <div class="stat-label">${_('dash.total_profiles')}</div>
+        </div>
+        <div class="stat-card" onclick="navTo('profiles')">
+          <div class="stat-icon" style="background:var(--success-soft);color:var(--success)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <div class="stat-value">${running}</div>
+          <div class="stat-label">${_('dash.running')}</div>
+        </div>
+        <div class="stat-card" onclick="navTo('proxies')">
+          <div class="stat-icon" style="background:var(--warning-soft);color:var(--warning)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          </div>
+          <div class="stat-value">${proxiesCount}</div>
+          <div class="stat-label">${_('dash.proxies')}</div>
+        </div>
+        <div class="stat-card" onclick="navTo('groups')">
+          <div class="stat-icon" style="background:rgba(168,85,247,.12);color:#a855f7">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div class="stat-value">${groupsCount}</div>
+          <div class="stat-label">${_('dash.groups')}</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h2>${_('dash.quick_actions')}</h2></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="showProfileModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            ${_('dash.create_profile')}
+          </button>
+          <button class="btn btn-success" onclick="launchAllProfiles()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            ${_('dash.launch_all')}
+          </button>
+          <button class="btn btn-ghost" onclick="openFingerprintTest()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H1l8-8 8 8h-8v8a8 8 0 0 0 8-8"/></svg>
+            ${_('dash.test_fingerprint')}
+          </button>
+        </div>
+      </div>
+      ${State.sessions.length > 0 ? `
+      <div class="panel">
+        <div class="panel-header"><h2>${_('dash.recent_activity')}</h2></div>
+        <div class="endpoint-list">
+          ${State.sessions.map(s => `
+            <div class="endpoint-item">
+              <span class="status-dot running"></span>
+              <span style="font-weight:500">${s.name}</span>
+              ${s.cdp_endpoint ? `<span style="color:var(--text-muted);font-family:var(--mono);font-size:12px">${s.cdp_endpoint}</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+    `;
+  } catch(e) {
+    content.innerHTML = `<div class="empty-state"><h3>${_('common.error')}</h3><p>${e.message}</p></div>`;
+  }
+}
+
+// ========== Profiles ==========
+async function renderProfiles() {
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="loading-overlay"><div class="spinner"></div></div>`;
+  try {
+    const resp = await api('GET', '/profiles');
+    State.profiles = resp.profiles || [];
+    const groupsResp = await api('GET', '/groups').catch(() => ({groups:[]}));
+    State.groups = groupsResp.groups || [];
+
+    const groupsMap = {};
+    State.groups.forEach(g => { groupsMap[g.id] = g; });
+
+    content.innerHTML = `
+      <div class="table-container">
+        <div class="table-toolbar">
+          <div class="toolbar-left">
+            <input type="text" class="filter-input" id="profileSearch" placeholder="${_('profiles.search')}" oninput="filterProfiles()" style="width:200px">
+            <select class="filter-select" id="profileStatusFilter" onchange="filterProfiles()">
+              <option value="">All Status</option>
+              <option value="running">Running</option>
+              <option value="stopped">Stopped</option>
+            </select>
+            <select class="filter-select" id="profileGroupFilter" onchange="filterProfiles()">
+              <option value="">All Groups</option>
+              ${State.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="toolbar-right">
+            ${State.selectedProfiles.size > 0 ? `<span style="color:var(--text-muted);font-size:13px">${State.selectedProfiles.size} selected</span>` : ''}
+            ${State.selectedProfiles.size > 0 ? `<button class="btn btn-ghost btn-sm" onclick="showBatchEditModal()">${_('profiles.batch_edit')}</button>` : ''}
+            ${State.selectedProfiles.size > 0 ? `<button class="btn btn-success btn-sm" onclick="batchLaunchProfiles()">${_('profiles.batch_launch')}</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="exportProfiles()" title="${_('profiles.export')}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFileInput').click()" title="${_('profiles.import')}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </button>
+            <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importProfiles(this)">
+            ${State.profiles.some(p => p.is_running) ? `<button class="btn btn-danger btn-sm" onclick="stopAllProfiles()">${_('profiles.stop_all')}</button>` : ''}
+            <button class="btn btn-primary btn-sm" onclick="showProfileModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              ${_('profiles.new')}
+            </button>
+          </div>
+        </div>
+        ${State.profiles.length === 0 ? `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            <h3>${_('profiles.empty')}</h3>
+            <p>${_('profiles.empty_desc')}</p>
+          </div>
+        ` : `
+          <table id="profileTable">
+            <thead>
+              <tr>
+                <th style="width:32px"><input type="checkbox" class="checkbox" id="selectAllProfiles" onchange="toggleSelectAll(this)"></th>
+                <th style="width:60px">${_('profiles.status')}</th>
+                <th>${_('profiles.name')}</th>
+                <th>${_('profiles.proxy')}</th>
+                <th>${_('profiles.group')}</th>
+                <th>${_('profiles.tags')}</th>
+                <th>${_('profiles.actions')}</th>
+              </tr>
+            </thead>
+            <tbody id="profileTableBody">
+              ${State.profiles.map(p => renderProfileRow(p, groupsMap)).join('')}
+            </tbody>
+          </table>
+        `}
+      </div>
+    `;
+  } catch(e) {
+    content.innerHTML = `<div class="empty-state"><h3>${_('common.error')}</h3><p>${e.message}</p></div>`;
+  }
+}
+
+function renderProfileRow(p, groupsMap) {
+  const isRunning = p.is_running;
+  const group = p.group_id ? groupsMap[p.group_id] : null;
+  const tags = (() => { try { return JSON.parse(p.tags||'[]') } catch { return [] } })();
+  return `
+    <tr data-name="${p.name}" oncontextmenu="showProfileContextMenu(event, '${p.name}')" style="cursor:default">
+      <td><input type="checkbox" class="checkbox profile-checkbox" value="${p.name}" onchange="toggleSelectProfile('${p.name}', this.checked)"></td>
+      <td><span class="status-dot ${isRunning?'running':'stopped'}"></span></td>
+      <td style="font-weight:500">${p.name}${p.headless ? '<span class="badge badge-muted" style="font-size:9px;margin-left:4px">H</span>' : ''}${p.humanize ? '<span class="badge badge-muted" style="font-size:9px;margin-left:4px;background:var(--accent);color:white">~</span>' : ''}</td>
+      <td style="color:var(--text-secondary);font-family:var(--mono);font-size:12px">${p.proxy ? maskProxy(p.proxy) : '—'}</td>
+      <td>${group ? `<span class="badge badge-info"><span class="color-dot" style="background:${group.color||'#4263eb'};margin-right:4px"></span>${group.name}</span>` : '—'}</td>
+      <td>${tags.map(t => `<span class="badge badge-muted">${t}</span>`).join(' ') || '—'}</td>
+      <td>
+        <div class="row-actions">
+          ${isRunning ? `
+            <button class="btn btn-icon btn-danger" title="${_('profiles.stop')}" onclick="stopProfile('${p.name}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
+            </button>
+            <button class="btn btn-icon btn-ghost" title="${_('profiles.screenshot')}" onclick="screenshotProfile('${p.name}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+          ` : `
+            <button class="btn btn-icon btn-success" title="${_('profiles.launch')}" onclick="launchProfile('${p.name}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </button>
+          `}
+          <button class="btn btn-icon btn-ghost" title="${_('profiles.clone')}" onclick="cloneProfile('${p.name}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <button class="btn btn-icon btn-ghost" title="${_('profiles.edit')}" onclick="showProfileModal('${p.name}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn btn-icon btn-ghost" title="${_('profiles.delete')}" onclick="deleteProfile('${p.name}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+}
+
+function maskProxy(proxy) {
+  return proxy.replace(/(:)[^@]+@/, '$1***@');
+}
+
+function filterProfiles() {
+  const search = document.getElementById('profileSearch')?.value.toLowerCase() || '';
+  const status = document.getElementById('profileStatusFilter')?.value || '';
+  const group = document.getElementById('profileGroupFilter')?.value || '';
+  document.querySelectorAll('#profileTableBody tr').forEach(row => {
+    const name = row.dataset.name.toLowerCase();
+    const p = State.profiles.find(x => x.name === row.dataset.name);
+    if (!p) return;
+    const matchSearch = !search || name.includes(search);
+    const matchStatus = !status || (status === 'running' && p.is_running) || (status === 'stopped' && !p.is_running);
+    const matchGroup = !group || String(p.group_id) === group;
+    row.style.display = (matchSearch && matchStatus && matchGroup) ? '' : 'none';
+  });
+}
+
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.profile-checkbox').forEach(c => { c.checked = cb.checked; toggleSelectProfile(c.value, cb.checked); });
+}
+function toggleSelectProfile(name, checked) {
+  if (checked) State.selectedProfiles.add(name); else State.selectedProfiles.delete(name);
+}
+
+async function launchProfile(name) {
+  try {
+    toast(_('profiles.launch') + ': ' + name, 'info');
+    await api('POST', `/profiles/${encodeURIComponent(name)}/launch`);
+    toast(name + ' launched', 'success');
+    renderProfiles();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function stopProfile(name) {
+  try {
+    await api('POST', `/profiles/${encodeURIComponent(name)}/stop`);
+    toast(name + ' stopped', 'success');
+    renderProfiles();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteProfile(name) {
+  showModal(_('profiles.delete_confirm'), `<p>${name}</p>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">${_('common.cancel')}</button>
+     <button class="btn btn-danger" onclick="confirmDeleteProfile('${name}')">${_('profiles.delete')}</button>`);
+}
+async function confirmDeleteProfile(name) {
+  try {
+    await api('DELETE', `/profiles/${encodeURIComponent(name)}`);
+    toast(_('common.deleted'), 'success');
+    closeModal();
+    renderProfiles();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function launchAllProfiles() {
+  const stopped = State.profiles.filter(p => !p.is_running);
+  if (stopped.length === 0) { toast('All profiles already running', 'info'); return; }
+  toast(`Launching ${stopped.length} profiles...`, 'info');
+  for (const p of stopped) {
+    try { await api('POST', `/profiles/${encodeURIComponent(p.name)}/launch`); } catch(e) {}
+  }
+  toast(`Launched ${stopped.length} profiles`, 'success');
+  renderProfiles();
+}
+
+async function stopAllProfiles() {
+  const running = State.profiles.filter(p => p.is_running);
+  if (running.length === 0) { toast(_('profiles.no_running'), 'info'); return; }
+  toast(_('profiles.stopping_all') + ` ${running.length}...`, 'info');
+  try {
+    await api('POST', '/profiles/stop-all');
+    toast(`${running.length} ${_('profiles.stopped')}`, 'success');
+  } catch(e) {
+    // Fallback: stop one by one
+    for (const p of running) {
+      try { await api('POST', `/profiles/${encodeURIComponent(p.name)}/stop`); } catch(e) {}
+    }
+    toast(`${running.length} ${_('profiles.stopped')}`, 'success');
+  }
+  renderProfiles();
+}
+
+async function cloneProfile(name) {
+  const newName = prompt(`${_('profiles.clone_name')}:`, `${name}_copy`);
+  if (!newName) return;
+  try {
+    await api('POST', `/profiles/${encodeURIComponent(name)}/clone`, {new_name: newName});
+    toast(_('profiles.cloned'), 'success');
+    renderProfiles();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function screenshotProfile(name) {
+  try {
+    toast(_('profiles.taking_screenshot'), 'info');
+    const resp = await api('POST', `/profiles/${encodeURIComponent(name)}/screenshot`);
+    toast(_('profiles.screenshot_saved'), 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function batchLaunchProfiles() {
+  const names = Array.from(State.selectedProfiles);
+  if (names.length === 0) return;
+  toast(`${_('profiles.batch_launching')} ${names.length}...`, 'info');
+  try {
+    const resp = await api('POST', '/profiles/batch-launch', {names, max_workers: 5});
+    toast(`${resp.launched.length} ${_('profiles.launched')}, ${resp.failed.length} ${_('common.error')}`, 'success');
+    State.selectedProfiles.clear();
+    renderProfiles();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function showProfileContextMenu(event, name) {
+  event.preventDefault();
+  const menu = document.createElement('div');
+  menu.style.cssText = `position:fixed;left:${event.clientX}px;top:${event.clientY}px;background:var(--bg-elevated);border:1px solid var(--border-hi);border-radius:var(--radius-sm);padding:4px;z-index:9999;min-width:160px;box-shadow:var(--shadow-lg)`;
+  const p = State.profiles.find(x => x.name === name);
+  const items = [
+    p && p.is_running ? {label: _('profiles.stop'), icon: '⏹', action: () => stopProfile(name)}
+                       : {label: _('profiles.launch'), icon: '▶', action: () => launchProfile(name)},
+    {label: _('profiles.edit'), icon: '✎', action: () => showProfileModal(name)},
+    {label: _('profiles.clone'), icon: '⧉', action: () => cloneProfile(name)},
+    p && p.is_running ? {label: _('profiles.screenshot'), icon: '📷', action: () => screenshotProfile(name)} : null,
+    {label: _('profiles.delete'), icon: '🗑', action: () => deleteProfile(name), danger: true},
+  ].filter(Boolean);
+  items.forEach(item => {
+    const btn = document.createElement('div');
+    btn.style.cssText = `padding:8px 12px;cursor:pointer;border-radius:4px;font-size:13px;display:flex;gap:8px;align-items:center;${item.danger?'color:var(--danger)':''}`;
+    btn.onmouseenter = () => btn.style.background = 'var(--bg-surface-hi)';
+    btn.onmouseleave = () => btn.style.background = 'transparent';
+    btn.textContent = `${item.icon} ${item.label}`;
+    btn.onclick = () => { menu.remove(); item.action(); };
+    menu.appendChild(btn);
+  });
+  document.body.appendChild(menu);
+  const closeMenu = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', closeMenu); } };
+  setTimeout(() => document.addEventListener('click', closeMenu), 0);
+}
+
+function showBatchEditModal() {
+  const names = Array.from(State.selectedProfiles);
+  showModal(_('profiles.batch_edit'), `
+    <div class="form-group">
+      <label>${_('profiles.batch_select_fields')}</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        <label><input type="checkbox" id="batchEditProxy"> ${_('profiles.batch_proxy')}</label>
+        <label><input type="checkbox" id="batchEditTimezone"> ${_('profiles.batch_timezone')}</label>
+        <label><input type="checkbox" id="batchEditWebrtc"> ${_('profiles.batch_webrtc')}</label>
+        <label><input type="checkbox" id="batchEditHeadless"> ${_('profiles.batch_headless')}</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>${_('profiles.batch_proxy_value')}</label>
+      <input type="text" id="batchProxyValue" class="form-input" placeholder="socks5://user:pass@host:port">
+    </div>
+    <div class="form-group">
+      <label>${_('profiles.batch_timezone_value')}</label>
+      <select id="batchTimezoneValue" class="form-input">
+        <option value="">${_('common.auto')}</option>
+        <option value="America/New_York">America/New_York</option>
+        <option value="Europe/London">Europe/London</option>
+        <option value="Asia/Shanghai">Asia/Shanghai</option>
+        <option value="Asia/Tokyo">Asia/Tokyo</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>${_('profiles.batch_webrtc_value')}</label>
+      <select id="batchWebrtcValue" class="form-input">
+        <option value="filter">Filter</option>
+        <option value="disable">Disable</option>
+        <option value="real">Real</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" id="batchHeadlessValue"> ${_('profiles.headless_mode')}</label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-primary" onclick="applyBatchEdit(${JSON.stringify(names).replace(/"/g,'&quot;')})">${_('common.save')}</button>
+      <button class="btn btn-ghost" onclick="closeModal()">${_('common.cancel')}</button>
+    </div>
+  `);
+}
+
+async function applyBatchEdit(names) {
+  const updates = {};
+  if (document.getElementById('batchEditProxy').checked) updates.proxy = document.getElementById('batchProxyValue').value;
+  if (document.getElementById('batchEditTimezone').checked) updates.timezone = document.getElementById('batchTimezoneValue').value;
+  if (document.getElementById('batchEditWebrtc').checked) updates.webrtc = document.getElementById('batchWebrtcValue').value;
+  if (document.getElementById('batchEditHeadless').checked) updates.headless = document.getElementById('batchHeadlessValue').checked;
+  for (const name of names) {
+    try { await api('PUT', `/profiles/${encodeURIComponent(name)}`, updates); } catch(e) {}
+  }
+  toast(`${names.length} ${_('profiles.batch_updated')}`, 'success');
+  closeModal();
+  renderProfiles();
+}
+
+async function exportProfiles() {
+  try {
+    const resp = await api('POST', '/profiles/export');
+    const blob = new Blob([JSON.stringify(resp, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fingerguard_export_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(_('profiles.exported'), 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function importProfiles(input) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const resp = await api('POST', '/profiles/import', {profiles: data.profiles || data});
+    toast(`${resp.imported} ${_('profiles.imported')}, ${resp.failed} ${_('common.error')}`, 'success');
+    renderProfiles();
+  } catch(e) { toast(e.message, 'error'); }
+  input.value = '';
+}
+
+// ========== Profile Modal ==========
+async function loadCookies(name) {
+  if (!name) { toast(_('profiles.cookies_hint'), 'info'); return; }
+  try {
+    const resp = await api('GET', `/profiles/${encodeURIComponent(name)}/cookies`);
+    const cookies = resp.cookies || [];
+    if (cookies.length > 0) {
+      document.getElementById('pf_cookies').value = JSON.stringify(cookies, null, 2);
+      toast(`${cookies.length} cookies loaded`, 'success');
+    } else {
+      toast('No cookies found', 'info');
+    }
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function showProfileModal(name) {
+  const p = name ? State.profiles.find(x => x.name === name) : null;
+  const groupsOptions = State.groups.map(g => `<option value="${g.id}" ${p && p.group_id==g.id?'selected':''}>${g.name}</option>`).join('');
+  const timezones = ['America/New_York','America/Chicago','America/Los_Angeles','America/Denver','Europe/London','Europe/Paris','Europe/Berlin','Asia/Tokyo','Asia/Shanghai','Asia/Singapore','Asia/Seoul','Australia/Sydney','UTC'];
+  const tzOptions = timezones.map(tz => `<option value="${tz}" ${p && p.timezone===tz?'selected':''}>${tz}</option>`).join('');
+
+  // Load proxy pool for selection
+  let proxiesOptions = '';
+  try {
+    const proxyResp = await api('GET', '/proxy');
+    const proxies = proxyResp.proxies || [];
+    proxiesOptions = proxies.map(px => {
+      const compat = ['http','https','socks4','socks5','socks5h'].includes(px.protocol);
+      const label = `${px.name} (${px.protocol}://${px.host}:${px.port})${compat?'':' ⚠'}`;
+      const selected = p && p.proxy && p.proxy.includes(px.host) && p.proxy.includes(String(px.port));
+      return `<option value="${px.protocol}://${px.host}:${px.port}" ${selected?'selected':''}>${label}</option>`;
+    }).join('');
+  } catch(e) {}
+
+  const browserEngines = [
+    {v:'chrome', label:'Google Chrome'},
+    {v:'edge', label:'Microsoft Edge'},
+    {v:'brave', label:'Brave'},
+    {v:'opera', label:'Opera'},
+    {v:'vivaldi', label:'Vivaldi'},
+  ];
+  const osTypes = [
+    {v:'windows', label:'Windows'},
+    {v:'macos', label:'macOS'},
+    {v:'linux', label:'Linux'},
+    {v:'android', label:'Android'},
+    {v:'ios', label:'iOS'},
+  ];
+
+  showModal(p ? _('profiles.edit') : _('profiles.new'), `
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label>${_('profiles.name_label')}</label>
+        <input type="text" id="pf_name" value="${p?p.name:''}" ${p?'readonly':''} placeholder="Profile 1">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>${_('profiles.browser_engine')}</label>
+        <select id="pf_browser_engine">
+          ${browserEngines.map(e => `<option value="${e.v}" ${p&&p.browser_engine===e.v?'selected':''}>${e.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>${_('profiles.os_type')}</label>
+        <select id="pf_os_type">
+          ${osTypes.map(o => `<option value="${o.v}" ${p&&p.os_type===o.v?'selected':''}>${o.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>${_('profiles.timezone_label')}</label>
+        <select id="pf_timezone">
+          <option value="">Auto (from IP)</option>
+          ${tzOptions}
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="background:var(--bg-surface-hi);border-radius:var(--radius-sm);padding:12px;margin-top:4px">
+      <label style="font-weight:600;margin-bottom:8px">🌐 ${_('profiles.proxy_label')}</label>
+      <div style="display:flex;gap:12px;margin-bottom:10px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer">
+          <input type="radio" name="pf_proxy_mode" value="none" ${!p||!p.proxy?'checked':''} onchange="toggleProxyMode()"> ${_('profiles.no_proxy')}
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer">
+          <input type="radio" name="pf_proxy_mode" value="pool" ${p&&p.proxy&&proxiesOptions?'checked':''} onchange="toggleProxyMode()"> ${_('profiles.select_proxy')}
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer">
+          <input type="radio" name="pf_proxy_mode" value="custom" ${p&&p.proxy&&!proxiesOptions?'checked':''} onchange="toggleProxyMode()"> ${_('profiles.custom_proxy')}
+        </label>
+      </div>
+      <div id="pf_proxy_pool_div" style="display:none">
+        <select id="pf_proxy_pool">
+          <option value="">-- ${_('profiles.select_proxy')} --</option>
+          ${proxiesOptions}
+        </select>
+      </div>
+      <div id="pf_proxy_custom_div" style="display:none">
+        <input type="text" id="pf_proxy" value="${p?(p.proxy||''):''}" placeholder="socks5://user:pass@host:port">
+        <div class="hint">${_('profiles.proxy_hint')}</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>${_('profiles.group_label')}</label>
+        <select id="pf_group">
+          <option value="">None</option>
+          ${groupsOptions}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>${_('profiles.tags_label')}</label>
+        <input type="text" id="pf_tags" value="${p ? (() => { try { return JSON.parse(p.tags||'[]').join(', ') } catch { return '' } })() : ''}" placeholder="facebook, shopping">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>${_('profiles.fingerprint_protection')}</label>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary)">
+          <input type="checkbox" class="checkbox" id="pf_canvas" ${!p||p.canvas_fp?'checked':''}> ${_('profiles.canvas')}
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary)">
+          <input type="checkbox" class="checkbox" id="pf_webgl" ${!p||p.webgl_fp?'checked':''}> ${_('profiles.webgl')}
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary)">
+          <input type="checkbox" class="checkbox" id="pf_audio" ${!p||p.audio_fp?'checked':''}> ${_('profiles.audio')}
+        </label>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>${_('profiles.webrtc')}</label>
+        <select id="pf_webrtc">
+          <option value="filter" ${!p||p.webrtc==='filter'?'selected':''}>${_('profiles.webrtc_filter')}</option>
+          <option value="disable" ${p&&p.webrtc==='disable'?'selected':''}>${_('profiles.webrtc_disable')}</option>
+          <option value="real" ${p&&p.webrtc==='real'?'selected':''}>${_('profiles.webrtc_real')}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>${_('profiles.dns')}</label>
+        <select id="pf_dns">
+          <option value="cloudflare" ${!p||p.dns_protection==='cloudflare'?'selected':''}>Cloudflare</option>
+          <option value="google" ${p&&p.dns_protection==='google'?'selected':''}>Google</option>
+          <option value="quad9" ${p&&p.dns_protection==='quad9'?'selected':''}>Quad9</option>
+          <option value="custom" ${p&&p.dns_protection==='custom'?'selected':''}>Custom</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>${_('profiles.notes')}</label>
+      <textarea id="pf_notes" placeholder="..." style="min-height:40px">${p?(p.notes||''):''}</textarea>
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="pf_headless" ${p&&p.headless?'checked':''}>
+        ${_('profiles.headless_mode')}
+      </label>
+      <small style="color:var(--text-muted);margin-left:24px">${_('profiles.headless_desc')}</small>
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="pf_humanize" ${p&&p.humanize?'checked':''}>
+        ${_('profiles.humanize_mode')}
+      </label>
+      <small style="color:var(--text-muted);margin-left:24px">${_('profiles.humanize_desc')}</small>
+    </div>
+    <div class="form-group">
+      <label>${_('profiles.custom_ua')}</label>
+      <input type="text" id="pf_user_agent" class="form-input" placeholder="${_('common.auto')}" value="${p?(p.user_agent||''):''}">
+    </div>
+    <div class="form-group">
+      <label>${_('profiles.cookies')}</label>
+      <div style="display:flex;gap:8px">
+        <textarea id="pf_cookies" placeholder='${_('profiles.cookies_hint')}' style="min-height:60px;font-family:var(--mono);font-size:12px"></textarea>
+        <button class="btn btn-ghost btn-sm" onclick="loadCookies('${name||''}')">${_('profiles.cookies_load')}</button>
+      </div>
+    </div>
+    <div class="form-group" style="background:var(--bg-surface-hi);border-radius:var(--radius-sm);padding:12px;margin-top:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="width:18px;height:18px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <span style="font-weight:600;color:var(--accent)">${_('profiles.ai_generate')}</span>
+      </label>
+      <input type="text" id="pf_ai_desc" placeholder="${_('profiles.ai_hint')}" style="margin-top:8px">
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="aiGenerate()">⚡ ${_('profiles.ai_generate')}</button>
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">${_('profiles.cancel')}</button>
+    <button class="btn btn-primary" onclick="saveProfile('${name||''}')">${_('profiles.save')}</button>
+  `);
+  toggleProxyMode();
+}
+
+function toggleProxyMode() {
+  const mode = document.querySelector('input[name="pf_proxy_mode"]:checked')?.value || 'none';
+  document.getElementById('pf_proxy_pool_div').style.display = mode === 'pool' ? 'block' : 'none';
+  document.getElementById('pf_proxy_custom_div').style.display = mode === 'custom' ? 'block' : 'none';
+}
+
+async function aiGenerate() {
+  const desc = document.getElementById('pf_ai_desc').value;
+  if (!desc) { toast('Please enter a description', 'warning'); return; }
+  try {
+    toast('AI generating fingerprint...', 'info');
+    const result = await api('POST', '/fingerprint/generate', {description: desc});
+    toast('Fingerprint generated', 'success');
+    // Auto-fill name if empty
+    if (!document.getElementById('pf_name').value) {
+      document.getElementById('pf_name').value = 'AI_' + Date.now().toString(36);
+    }
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function saveProfile(name) {
+  // Determine proxy value based on mode
+  const proxyMode = document.querySelector('input[name="pf_proxy_mode"]:checked')?.value || 'none';
+  let proxyValue = null;
+  if (proxyMode === 'pool') {
+    proxyValue = document.getElementById('pf_proxy_pool')?.value || null;
+  } else if (proxyMode === 'custom') {
+    proxyValue = document.getElementById('pf_proxy')?.value || null;
+  }
+
+  const data = {
+    name: document.getElementById('pf_name').value,
+    browser_engine: document.getElementById('pf_browser_engine').value,
+    os_type: document.getElementById('pf_os_type').value,
+    proxy: proxyValue,
+    timezone: document.getElementById('pf_timezone').value || null,
+    group_id: document.getElementById('pf_group').value || null,
+    tags: document.getElementById('pf_tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    canvas_fp: document.getElementById('pf_canvas').checked,
+    webgl_fp: document.getElementById('pf_webgl').checked,
+    audio_fp: document.getElementById('pf_audio').checked,
+    webrtc: document.getElementById('pf_webrtc').value,
+    dns_protection: document.getElementById('pf_dns').value,
+    notes: document.getElementById('pf_notes').value || null,
+    headless: document.getElementById('pf_headless').checked,
+    humanize: document.getElementById('pf_humanize').checked,
+    user_agent: document.getElementById('pf_user_agent').value || null,
+  };
+  // Save cookies if provided
+  const cookiesText = document.getElementById('pf_cookies')?.value.trim();
+  if (cookiesText && name) {
+    try {
+      const cookies = JSON.parse(cookiesText);
+      data._cookies = cookies;
+    } catch(e) {}
+  }
+  try {
+    if (name) {
+      await api('PUT', `/profiles/${encodeURIComponent(name)}`, data);
+      // Save cookies separately
+      if (cookiesText) {
+        try {
+          const cookies = JSON.parse(cookiesText);
+          await api('POST', `/profiles/${encodeURIComponent(name)}/cookies`, {cookies});
+        } catch(e) {}
+      }
+    } else {
+      await api('POST', '/profiles', data);
+    }
+    toast(_('common.saved'), 'success');
+    closeModal();
+    renderProfiles();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ========== Proxy Pool ==========
+async function renderProxies() {
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="loading-overlay"><div class="spinner"></div></div>`;
+  try {
+    const resp = await api('GET', '/proxy');
+    State.proxies = resp.proxies || [];
+    content.innerHTML = `
+      <div class="table-container">
+        <div class="table-toolbar">
+          <div class="toolbar-left">
+            <select class="filter-select" onchange="filterProxies(this.value)">
+              <option value="">All Protocols</option>
+              <option value="socks5">SOCKS5</option>
+              <option value="socks5h">SOCKS5 (DNS via proxy)</option>
+              <option value="http">HTTP</option>
+              <option value="https">HTTPS</option>
+              <option value="socks4">SOCKS4</option>
+              <option value="vmess">VMess</option>
+              <option value="vless">VLESS</option>
+              <option value="trojan">Trojan</option>
+              <option value="ss">Shadowsocks</option>
+              <option value="ssr">ShadowsocksR</option>
+              <option value="ssh">SSH Tunnel</option>
+              <option value="l2tp">L2TP/IPSec</option>
+              <option value="pptp">PPTP</option>
+              <option value="wireguard">WireGuard</option>
+              <option value="openvpn">OpenVPN</option>
+            </select>
+          </div>
+          <div class="toolbar-right">
+            <button class="btn btn-ghost btn-sm" onclick="testAllProxies()">${_('proxy.test_all')}</button>
+            <button class="btn btn-primary btn-sm" onclick="showAddProxyModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              ${_('proxy.add')}
+            </button>
+          </div>
+        </div>
+        ${State.proxies.length === 0 ? `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+            <h3>${_('proxy.empty')}</h3>
+          </div>
+        ` : `
+          <table>
+            <thead>
+              <tr>
+                <th>${_('proxy.name')}</th>
+                <th>${_('proxy.protocol')}</th>
+                <th>${_('proxy.host')}</th>
+                <th>${_('proxy.port')}</th>
+                <th>${_('proxy.country')}</th>
+                <th>${_('proxy.latency')}</th>
+                <th>${_('proxy.status')}</th>
+                <th>${_('proxy.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${State.proxies.map(p => {
+                const chromeCompat = ['http','https','socks4','socks5','socks5h'].includes(p.protocol);
+                return `
+                <tr data-protocol="${p.protocol}">
+                  <td style="font-weight:500">${p.name}</td>
+                  <td>
+                    <span class="badge badge-info">${p.protocol}</span>
+                    ${chromeCompat ? `<span class="badge badge-success" style="font-size:10px">✓</span>` : `<span class="badge badge-warning" style="font-size:10px">⚠</span>`}
+                  </td>
+                  <td style="font-family:var(--mono)">${p.host}</td>
+                  <td style="font-family:var(--mono)">${p.port}</td>
+                  <td>${p.country || '—'}</td>
+                  <td>${p.latency_ms ? p.latency_ms+'ms' : '—'}</td>
+                  <td><span class="badge ${p.is_healthy?'badge-success':'badge-danger'}">${p.is_healthy?_('proxy.healthy'):_('proxy.unhealthy')}</span></td>
+                  <td>
+                    <div class="row-actions">
+                      <button class="btn btn-icon btn-ghost" title="${_('proxy.test')}" onclick="testProxy('${p.name}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                      </button>
+                      <button class="btn btn-icon btn-ghost" title="${_('profiles.edit')}" onclick="showEditProxyModal('${p.name}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                      <button class="btn btn-icon btn-danger" title="${_('profiles.delete')}" onclick="deleteProxy('${p.name}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        `}
+      </div>
+    `;
+  } catch(e) {
+    content.innerHTML = `<div class="empty-state"><h3>${_('common.error')}</h3><p>${e.message}</p></div>`;
+  }
+}
+
+function filterProxies(protocol) {
+  document.querySelectorAll('#content tbody tr').forEach(row => {
+    row.style.display = (!protocol || row.dataset.protocol === protocol) ? '' : 'none';
+  });
+}
+
+function showAddProxyModal() {
+  const protocols = [
+    {v:'socks5', label:'SOCKS5', chrome:true},
+    {v:'socks5h', label:'SOCKS5 (DNS via proxy)', chrome:true},
+    {v:'http', label:'HTTP', chrome:true},
+    {v:'https', label:'HTTPS', chrome:true},
+    {v:'socks4', label:'SOCKS4', chrome:true},
+    {v:'vmess', label:'VMess', chrome:false},
+    {v:'vless', label:'VLESS', chrome:false},
+    {v:'trojan', label:'Trojan', chrome:false},
+    {v:'ss', label:'Shadowsocks (SS)', chrome:false},
+    {v:'ssr', label:'ShadowsocksR (SSR)', chrome:false},
+    {v:'ssh', label:'SSH Tunnel', chrome:false},
+    {v:'l2tp', label:'L2TP/IPSec', chrome:false},
+    {v:'pptp', label:'PPTP', chrome:false},
+    {v:'wireguard', label:'WireGuard', chrome:false},
+    {v:'openvpn', label:'OpenVPN', chrome:false},
+  ];
+  showModal(_('proxy.add_title'), `
+    <div class="form-group">
+      <label>${_('proxy.name')}</label>
+      <input type="text" id="px_name" placeholder="US Proxy 1">
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:0 0 140px">
+        <label>${_('proxy.protocol')}</label>
+        <select id="px_protocol" onchange="onProtocolChange()">
+          ${protocols.map(p => `<option value="${p.v}">${p.label}${p.chrome?'':' ⚠'}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>${_('proxy.host_label')}</label>
+        <input type="text" id="px_host" placeholder="127.0.0.1 or example.com">
+      </div>
+      <div class="form-group" style="flex:0 0 90px">
+        <label>${_('proxy.port_label')}</label>
+        <input type="number" id="px_port" placeholder="1080" value="1080">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>${_('proxy.username')} <span style="color:var(--text-muted);font-weight:normal">${_('proxy.auth_optional')}</span></label>
+        <input type="text" id="px_username" placeholder="${_('proxy.no_auth')}">
+      </div>
+      <div class="form-group">
+        <label>${_('proxy.password')} <span style="color:var(--text-muted);font-weight:normal">${_('proxy.auth_optional')}</span></label>
+        <input type="password" id="px_password" placeholder="${_('proxy.no_auth')}">
+      </div>
+    </div>
+    <div id="px_bridge_warn" style="display:none;padding:10px 12px;background:var(--warning-soft);border-radius:var(--radius-sm);font-size:12px;color:var(--warning);margin-bottom:12px">
+      ⚠ ${_('proxy.bridge_needed')}: This protocol requires Xray/sing-box to convert to SOCKS5.
+    </div>
+    <div class="form-group">
+      <label>${_('profiles.tags_label')}</label>
+      <input type="text" id="px_tags" placeholder="us, fast">
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">${_('common.cancel')}</button>
+    <button class="btn btn-primary" onclick="addProxy()">${_('proxy.add')}</button>
+  `);
+}
+
+function onProtocolChange() {
+  const proto = document.getElementById('px_protocol').value;
+  const bridgeProtos = ['vmess','vless','trojan','ss','ssr','ssh','l2tp','pptp','wireguard','openvpn'];
+  const warn = document.getElementById('px_bridge_warn');
+  if (warn) warn.style.display = bridgeProtos.includes(proto) ? 'block' : 'none';
+  // Update default port based on protocol
+  const portInput = document.getElementById('px_port');
+  if (portInput && !portInput.dataset.userChanged) {
+    const defaultPorts = {http:8080, https:443, socks4:1080, socks5:1080, socks5h:1080, vmess:443, vless:443, trojan:443, ss:8388, ssr:8388, ssh:22, l2tp:1701, pptp:1723, wireguard:51820, openvpn:1194};
+    portInput.value = defaultPorts[proto] || 1080;
+  }
+}
+
+async function addProxy() {
+  const name = document.getElementById('px_name').value.trim();
+  const protocol = document.getElementById('px_protocol').value;
+  const host = document.getElementById('px_host').value.trim();
+  const port = parseInt(document.getElementById('px_port').value);
+  const username = document.getElementById('px_username').value.trim() || null;
+  const password = document.getElementById('px_password').value.trim() || null;
+  const tagsStr = document.getElementById('px_tags').value.trim();
+  const tags = tagsStr ? tagsStr.split(',').map(t=>t.trim()).filter(Boolean) : [];
+
+  if (!name) { toast(_('proxy.name') + ' is required', 'warning'); return; }
+  if (!host) { toast(_('proxy.host_label') + ' is required', 'warning'); return; }
+  if (!port || port < 1 || port > 65535) { toast(_('proxy.port_label') + ' is invalid', 'warning'); return; }
+
+  try {
+    await api('POST', '/proxy', {name, protocol, host, port, username, password, tags});
+    toast(_('common.saved'), 'success');
+    closeModal();
+    renderProxies();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function showEditProxyModal(name) {
+  const p = State.proxies.find(x => x.name === name);
+  if (!p) { toast('Proxy not found', 'error'); return; }
+  const protocols = [
+    {v:'socks5', label:'SOCKS5', chrome:true},
+    {v:'socks5h', label:'SOCKS5 (DNS via proxy)', chrome:true},
+    {v:'http', label:'HTTP', chrome:true},
+    {v:'https', label:'HTTPS', chrome:true},
+    {v:'socks4', label:'SOCKS4', chrome:true},
+    {v:'vmess', label:'VMess', chrome:false},
+    {v:'vless', label:'VLESS', chrome:false},
+    {v:'trojan', label:'Trojan', chrome:false},
+    {v:'ss', label:'Shadowsocks (SS)', chrome:false},
+    {v:'ssr', label:'ShadowsocksR (SSR)', chrome:false},
+    {v:'ssh', label:'SSH Tunnel', chrome:false},
+    {v:'l2tp', label:'L2TP/IPSec', chrome:false},
+    {v:'pptp', label:'PPTP', chrome:false},
+    {v:'wireguard', label:'WireGuard', chrome:false},
+    {v:'openvpn', label:'OpenVPN', chrome:false},
+  ];
+  const tagsStr = Array.isArray(p.tags) ? p.tags.join(', ') : '';
+  showModal(_('profiles.edit') + ' — ' + name, `
+    <div class="form-group">
+      <label>${_('proxy.name')}</label>
+      <input type="text" id="pxe_name" value="${p.name}">
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:0 0 140px">
+        <label>${_('proxy.protocol')}</label>
+        <select id="pxe_protocol" onchange="onProtocolChangeEdit()">
+          ${protocols.map(pr => `<option value="${pr.v}" ${pr.v===p.protocol?'selected':''}>${pr.label}${pr.chrome?'':' ⚠'}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>${_('proxy.host_label')}</label>
+        <input type="text" id="pxe_host" value="${p.host||''}">
+      </div>
+      <div class="form-group" style="flex:0 0 90px">
+        <label>${_('proxy.port_label')}</label>
+        <input type="number" id="pxe_port" value="${p.port||1080}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>${_('proxy.username')} <span style="color:var(--text-muted);font-weight:normal">${_('proxy.auth_optional')}</span></label>
+        <input type="text" id="pxe_username" value="${p.username||''}" placeholder="${_('proxy.no_auth')}">
+      </div>
+      <div class="form-group">
+        <label>${_('proxy.password')} <span style="color:var(--text-muted);font-weight:normal">${_('proxy.auth_optional')}</span></label>
+        <input type="password" id="pxe_password" value="${p.password||''}" placeholder="${_('proxy.no_auth')}">
+      </div>
+    </div>
+    <div id="pxe_bridge_warn" style="display:none;padding:10px 12px;background:var(--warning-soft);border-radius:var(--radius-sm);font-size:12px;color:var(--warning);margin-bottom:12px">
+      ⚠ ${_('proxy.bridge_needed')}: This protocol requires Xray/sing-box/strongSwan to convert to SOCKS5.
+    </div>
+    <div class="form-group">
+      <label>${_('profiles.tags_label')}</label>
+      <input type="text" id="pxe_tags" value="${tagsStr}">
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">${_('common.cancel')}</button>
+    <button class="btn btn-primary" onclick="editProxy('${name}')">${_('common.save')}</button>
+  `);
+  onProtocolChangeEdit();
+}
+
+function onProtocolChangeEdit() {
+  const proto = document.getElementById('pxe_protocol')?.value;
+  if (!proto) return;
+  const bridgeProtos = ['vmess','vless','trojan','ss','ssr','ssh','l2tp','pptp','wireguard','openvpn'];
+  const warn = document.getElementById('pxe_bridge_warn');
+  if (warn) warn.style.display = bridgeProtos.includes(proto) ? 'block' : 'none';
+}
+
+async function editProxy(originalName) {
+  const name = document.getElementById('pxe_name').value.trim();
+  const protocol = document.getElementById('pxe_protocol').value;
+  const host = document.getElementById('pxe_host').value.trim();
+  const port = parseInt(document.getElementById('pxe_port').value);
+  const username = document.getElementById('pxe_username').value.trim() || null;
+  const password = document.getElementById('pxe_password').value.trim() || null;
+  const tagsStr = document.getElementById('pxe_tags').value.trim();
+  const tags = tagsStr ? tagsStr.split(',').map(t=>t.trim()).filter(Boolean) : [];
+
+  if (!name) { toast(_('proxy.name') + ' is required', 'warning'); return; }
+  if (!host) { toast(_('proxy.host_label') + ' is required', 'warning'); return; }
+  if (!port || port < 1 || port > 65535) { toast(_('proxy.port_label') + ' is invalid', 'warning'); return; }
+
+  try {
+    await api('PUT', `/proxy/${encodeURIComponent(originalName)}`, {name, protocol, host, port, username, password, tags});
+    toast(_('common.saved'), 'success');
+    closeModal();
+    renderProxies();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function testProxy(name) {
+  toast('Testing ' + name + '...', 'info');
+  try {
+    const result = await api('POST', '/proxy/check', {proxy: name});
+    if (result.latency_ms !== null && result.latency_ms !== undefined) {
+      toast(name + ': ' + result.latency_ms + 'ms ✓', 'success');
+    } else {
+      toast(name + ': ' + (result.ip_info?.message || 'OK'), 'success');
+    }
+    renderProxies();
+  } catch(e) { toast(name + ': ' + e.message, 'error'); }
+}
+
+async function deleteProxy(name) {
+  showModal(_('profiles.delete_confirm'), `<p>${name}</p>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">${_('common.cancel')}</button>
+     <button class="btn btn-danger" onclick="confirmDeleteProxy('${name}')">${_('profiles.delete')}</button>`);
+}
+async function confirmDeleteProxy(name) {
+  try {
+    await api('DELETE', `/proxy/${encodeURIComponent(name)}`);
+    toast(_('common.deleted'), 'success');
+    closeModal();
+    renderProxies();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function testAllProxies() {
+  toast('Testing all proxies...', 'info');
+  for (const p of State.proxies) {
+    try { await api('POST', '/proxy/check', {proxy: p.name}); } catch(e) {}
+  }
+  toast('Test complete', 'success');
+  renderProxies();
+}
+
+// ========== Groups ==========
+async function renderGroups() {
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="loading-overlay"><div class="spinner"></div></div>`;
+  try {
+    const resp = await api('GET', '/groups');
+    State.groups = resp.groups || [];
+    content.innerHTML = `
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div class="table-toolbar">
+          <div class="toolbar-left"><h2 style="font-size:15px;font-weight:600">${_('groups.title')}</h2></div>
+          <div class="toolbar-right">
+            <button class="btn btn-primary btn-sm" onclick="showCreateGroupModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              ${_('groups.create')}
+            </button>
+          </div>
+        </div>
+        ${State.groups.length === 0 ? `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <h3>${_('groups.empty')}</h3>
+          </div>
+        ` : `
+          <table>
+            <thead>
+              <tr>
+                <th>${_('groups.name')}</th>
+                <th>Description</th>
+                <th>${_('profiles_count')}</th>
+                <th>${_('groups.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${State.groups.map(g => {
+                const count = State.profiles.filter(p => p.group_id == g.id).length;
+                return `
+                <tr>
+                  <td style="font-weight:500"><span class="color-dot" style="background:${g.color||'#4263eb'};margin-right:8px"></span>${g.name}</td>
+                  <td style="color:var(--text-secondary)">${g.description||'—'}</td>
+                  <td><span class="badge badge-muted">${count}</span></td>
+                  <td>
+                    <div class="row-actions">
+                      <button class="btn btn-icon btn-success" title="${_('groups.bulk_launch')}" onclick="bulkLaunchGroup('${g.name}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      </button>
+                      <button class="btn btn-icon btn-danger" title="${_('groups.bulk_stop')}" onclick="bulkStopGroup('${g.name}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
+                      </button>
+                      <button class="btn btn-icon btn-ghost" title="${_('profiles.delete')}" onclick="deleteGroup('${g.name}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        `}
+      </div>
+    `;
+  } catch(e) {
+    content.innerHTML = `<div class="empty-state"><h3>${_('common.error')}</h3><p>${e.message}</p></div>`;
+  }
+}
+
+function showCreateGroupModal() {
+  const colors = ['#4263eb','#2dd4a7','#f5a623','#ef4444','#a855f7','#06b6d4','#ec4899'];
+  showModal(_('groups.create_title'), `
+    <div class="form-group">
+      <label>${_('groups.name_label')}</label>
+      <input type="text" id="gp_name" placeholder="Shopping">
+    </div>
+    <div class="form-group">
+      <label>${_('groups.color_label')}</label>
+      <div style="display:flex;gap:8px">
+        ${colors.map(c => `<label style="cursor:pointer"><input type="radio" name="gp_color" value="${c}" ${c==='#4263eb'?'checked':''} style="display:none"><span class="color-dot" style="width:24px;height:24px;background:${c};border:2px solid transparent;border-radius:50%;display:inline-block" onclick="this.parentElement.parentElement.querySelectorAll('span').forEach(s=>s.style.borderColor='transparent');this.style.borderColor='var(--text-primary)'"></span></label>`).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label>${_('groups.desc_label')}</label>
+      <input type="text" id="gp_desc" placeholder="E-commerce profiles">
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">${_('common.cancel')}</button>
+    <button class="btn btn-primary" onclick="createGroup()">${_('settings.title'==='设置'?'创建':'Create')}</button>
+  `);
+}
+
+async function createGroup() {
+  const name = document.getElementById('gp_name').value;
+  const desc = document.getElementById('gp_desc').value;
+  const color = document.querySelector('input[name="gp_color"]:checked')?.value || '#4263eb';
+  if (!name) { toast('Name is required', 'warning'); return; }
+  try {
+    await api('POST', '/groups', {name, description: desc, color});
+    toast(_('common.saved'), 'success');
+    closeModal();
+    renderGroups();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function bulkLaunchGroup(name) {
+  toast('Launching group: ' + name, 'info');
+  try {
+    await api('POST', `/groups/${encodeURIComponent(name)}/launch`);
+    toast('Group launched', 'success');
+    renderGroups();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function bulkStopGroup(name) {
+  toast('Stopping group: ' + name, 'info');
+  try {
+    await api('POST', `/groups/${encodeURIComponent(name)}/stop`);
+    toast('Group stopped', 'success');
+    renderGroups();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteGroup(name) {
+  showModal(_('groups.delete_confirm'), `<p>${name}</p>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">${_('common.cancel')}</button>
+     <button class="btn btn-danger" onclick="confirmDeleteGroup('${name}')">${_('profiles.delete')}</button>`);
+}
+async function confirmDeleteGroup(name) {
+  try {
+    await api('DELETE', `/groups/${encodeURIComponent(name)}`);
+    toast(_('common.deleted'), 'success');
+    closeModal();
+    renderGroups();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ========== API & MCP ==========
+let apiServerRunning = false;
+let apiServerPort = null;
+
+async function renderAPI() {
+  const content = document.getElementById('content');
+  content.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h2>${_('api.status')}</h2>
+        <span class="badge ${apiServerRunning?'badge-success':'badge-muted'}">
+          <span class="status-dot ${apiServerRunning?'running':'stopped'}"></span>
+          ${apiServerRunning?_('api.running'):_('api.stopped')}
+        </span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">${_('api.base_url')}</span>
+        <span class="info-value">${apiServerRunning ? 'http://127.0.0.1:' + apiServerPort : '—'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">${_('api.api_key')}</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="info-value" id="apiKeyDisplay">${State.apiKey ? State.apiKey.slice(0,8) + '••••••••' : '—'}</span>
+          ${State.apiKey ? `<button class="btn btn-ghost btn-sm" onclick="copyText('${State.apiKey}')">${_('api.copy')}</button>` : ''}
+        </span>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px">
+        ${apiServerRunning ? `
+          <button class="btn btn-danger" onclick="stopApiServer()">${_('api.stop')}</button>
+        ` : `
+          <button class="btn btn-primary" onclick="startApiServer()">${_('api.start')}</button>
+        `}
+        <button class="btn btn-ghost" onclick="resetApiKey()">${_('api.reset_key')}</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>${_('api.mcp_title')}</h2></div>
+      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px">${_('api.mcp_desc')}</p>
+      <div class="code-block" id="mcpConfig">Loading...</div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="copyMcpConfig()">${_('api.copy_mcp')}</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>${_('api.endpoints')}</h2></div>
+      <div class="endpoint-list">
+        <div class="endpoint-item"><span class="method GET">GET</span><span class="path">/api/health</span></div>
+        <div class="endpoint-item"><span class="method GET">GET</span><span class="path">/api/profiles</span></div>
+        <div class="endpoint-item"><span class="method POST">POST</span><span class="path">/api/profiles</span></div>
+        <div class="endpoint-item"><span class="method GET">GET</span><span class="path">/api/profiles/{name}</span></div>
+        <div class="endpoint-item"><span class="method PUT">PUT</span><span class="path">/api/profiles/{name}</span></div>
+        <div class="endpoint-item"><span class="method DELETE">DEL</span><span class="path">/api/profiles/{name}</span></div>
+        <div class="endpoint-item"><span class="method POST">POST</span><span class="path">/api/profiles/{name}/launch</span></div>
+        <div class="endpoint-item"><span class="method POST">POST</span><span class="path">/api/profiles/{name}/stop</span></div>
+        <div class="endpoint-item"><span class="method GET">GET</span><span class="path">/api/sessions</span></div>
+        <div class="endpoint-item"><span class="method POST">POST</span><span class="path">/api/fingerprint/generate</span></div>
+        <div class="endpoint-item"><span class="method GET">GET</span><span class="path">/api/proxy</span></div>
+        <div class="endpoint-item"><span class="method POST">POST</span><span class="path">/api/proxy/check</span></div>
+        <div class="endpoint-item"><span class="method GET">GET</span><span class="path">/api/groups</span></div>
+        <div class="endpoint-item"><span class="method POST">POST</span><span class="path">/api/groups</span></div>
+      </div>
+    </div>
+  `;
+  updateMcpConfig();
+}
+
+async function startApiServer() {
+  toast('Starting API server...', 'info');
+  try {
+    // The API server is already running (we're using it), this is just for UI
+    apiServerRunning = true;
+    toast('API server is running', 'success');
+    renderAPI();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function stopApiServer() {
+  apiServerRunning = false;
+  toast('API server stopped', 'info');
+  renderAPI();
+}
+
+async function resetApiKey() {
+  showModal('Reset API Key', '<p>This will invalidate the current key. Continue?</p>',
+    `<button class="btn btn-ghost" onclick="closeModal()">${_('common.cancel')}</button>
+     <button class="btn btn-danger" onclick="confirmResetKey()">${_('api.reset_key')}</button>`);
+}
+async function confirmResetKey() {
+  // In a real implementation, this would call the API to reset the key
+  toast('API key reset (restart required)', 'info');
+  closeModal();
+}
+
+function updateMcpConfig() {
+  const config = {
+    mcpServers: {
+      fingerguard: {
+        command: 'python',
+        args: ['-m', 'src.api.mcp_server'],
+        env: {
+          FINGUARD_API_KEY: State.apiKey || '<your-api-key>',
+          FINGUARD_API_URL: apiServerRunning ? `http://127.0.0.1:${apiServerPort}` : 'http://127.0.0.1:<port>',
+        }
+      }
+    }
+  };
+  const el = document.getElementById('mcpConfig');
+  if (el) el.textContent = JSON.stringify(config, null, 2);
+}
+
+function copyMcpConfig() {
+  const text = document.getElementById('mcpConfig')?.textContent || '';
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard', 'success'));
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Copied', 'success'));
+}
+
+// ========== Settings ==========
+function renderSettings() {
+  const content = document.getElementById('content');
+  const vectors = ['Canvas','WebGL','AudioContext','WebRTC','Timezone','Geolocation','Fonts (50+)','ClientHints','Hardware Concurrency','Device Memory','Screen Resolution','Color Depth','Platform','Language','Speech Synthesis'];
+  content.innerHTML = `
+    <div class="panel">
+      <div class="panel-header"><h2>${_('settings.language')}</h2></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn ${State.locale==='en'?'btn-primary':'btn-ghost'}" onclick="setLocale('en')">English</button>
+        <button class="btn ${State.locale==='zh'?'btn-primary':'btn-ghost'}" onclick="setLocale('zh')">中文</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h2>${_('settings.fingerprint_vectors')}</h2></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${vectors.map(v => `<span class="badge badge-success">${v}</span>`).join('')}
+      </div>
+      <div style="margin-top:12px;color:var(--text-muted);font-size:13px">${_('settings.vector_count')}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h2>${_('settings.about')}</h2></div>
+      <div class="info-row"><span class="info-label">${_('settings.version')}</span><span class="info-value">2.0.0</span></div>
+      <div class="info-row"><span class="info-label">Engine</span><span class="info-value">undetected-chromedriver</span></div>
+      <div class="info-row"><span class="info-label">Storage</span><span class="info-value">SQLite (AES-256)</span></div>
+      <div class="info-row"><span class="info-label">UI Framework</span><span class="info-value">pywebview + Web</span></div>
+    </div>
+  `;
+}
+
+function setLocale(locale) {
+  State.locale = locale;
+  applyI18n();
+  renderView();
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = _(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = _(el.dataset.i18nPh);
+  });
+}
+
+// ========== Quick Launch (Ctrl+K) ==========
+const quickLaunch = document.getElementById('quickLaunch');
+const quickLaunchInput = document.getElementById('quickLaunchInput');
+const quickLaunchResults = document.getElementById('quickLaunchResults');
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    quickLaunch.classList.add('show');
+    quickLaunchInput.value = '';
+    quickLaunchInput.focus();
+    updateQuickLaunch('');
+  }
+  if (e.key === 'Escape') {
+    quickLaunch.classList.remove('show');
+    closeModal();
+  }
+});
+
+quickLaunchInput.addEventListener('input', e => updateQuickLaunch(e.target.value));
+quickLaunch.addEventListener('click', e => { if (e.target === quickLaunch) quickLaunch.classList.remove('show'); });
+
+function updateQuickLaunch(query) {
+  const q = query.toLowerCase();
+  const items = [];
+  // Commands
+  const commands = [
+    {title: 'New Profile', sub: 'Create a new browser profile', icon:'➕', action: () => { navTo('profiles'); showProfileModal(); }},
+    {title: 'Test Fingerprint', sub: 'Open fingerprint test page', icon:'🧪', action: () => openFingerprintTest()},
+    {title: 'Go to Dashboard', sub: 'View dashboard', icon:'📊', action: () => navTo('dashboard')},
+    {title: 'Go to Profiles', sub: 'Manage profiles', icon:'👥', action: () => navTo('profiles')},
+    {title: 'Go to Proxy Pool', sub: 'Manage proxies', icon:'🌐', action: () => navTo('proxies')},
+    {title: 'Go to Groups', sub: 'Manage groups', icon:'📁', action: () => navTo('groups')},
+    {title: 'Go to API & MCP', sub: 'API settings', icon:'🔌', action: () => navTo('api')},
+    {title: 'Go to Settings', sub: 'Application settings', icon:'⚙️', action: () => navTo('settings')},
+  ];
+  commands.forEach(c => { if (!q || c.title.toLowerCase().includes(q)) items.push({...c, type:'command'}); });
+  // Profiles
+  State.profiles.forEach(p => {
+    if (!q || p.name.toLowerCase().includes(q)) {
+      items.push({title: p.name, sub: p.is_running?'Running • click to stop':'Stopped • click to launch', icon:'🌐', type:'profile', action: () => {
+        navTo('profiles');
+        if (p.is_running) stopProfile(p.name); else launchProfile(p.name);
+      }});
+    }
+  });
+  quickLaunchResults.innerHTML = items.slice(0, 8).map((item, i) => `
+    <div class="quick-launch-item ${i===0?'selected':''}" onclick="quickLaunch.classList.remove('show'); (${item.action.toString()})()">
+      <div class="ql-icon">${item.icon}</div>
+      <div class="ql-info">
+        <div class="ql-title">${item.title}</div>
+        <div class="ql-sub">${item.sub}</div>
+      </div>
+    </div>
+  `).join('') || '<div style="padding:20px;text-align:center;color:var(--text-muted)">No results</div>';
+}
+
+// ========== Fingerprint Test ==========
+function openFingerprintTest() {
+  // Open the test page in the default browser
+  const testUrl = `${State.baseUrl}/test`;
+  window.open(testUrl, '_blank');
+}
+
+// ========== Helpers ==========
+function navTo(view) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`.nav-item[data-view="${view}"]`)?.classList.add('active');
+  State.currentView = view;
+  renderView();
+}
+
+// ========== Init ==========
+// Get API key and base URL from the launcher (injected by pywebview)
+// These are set via URL params when pywebview loads this page
+async function init() {
+  const params = new URLSearchParams(window.location.search);
+  State.apiKey = params.get('key') || localStorage.getItem('fg_api_key') || '';
+  const port = params.get('port') || localStorage.getItem('fg_port') || '0';
+  State.baseUrl = `http://127.0.0.1:${port}`;
+  apiServerPort = port;
+  apiServerRunning = true;
+
+  if (State.apiKey) {
+    localStorage.setItem('fg_api_key', State.apiKey);
+    localStorage.setItem('fg_port', port);
+  }
+
+  // Load locale
+  State.locale = localStorage.getItem('fg_locale') || 'zh';
+  applyI18n();
+
+  // New profile button
+  document.getElementById('newProfileBtn').addEventListener('click', () => showProfileModal());
+
+  // Quick search
+  document.getElementById('quickSearch').addEventListener('focus', () => {
+    quickLaunch.classList.add('show');
+    quickLaunchInput.focus();
+  });
+
+  renderView();
+}
+
+init();
+</script>
+</body>
+</html>

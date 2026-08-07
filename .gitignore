@@ -1,0 +1,66 @@
+# Browser profiles and cache
+src/browser/config/profiles/*/
+src/profiles/*/
+profiles/*/
+*.pak
+*.bin
+*.dat
+*.db
+*.db-shm
+*.db-wal
+*.log
+browser_data/
+data/
+Cache/
+GPUCache/
+ShaderCache/
+CacheStorage/
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Build artifacts (keep .spec for reproducible builds)
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+sdist/
+var/
+wheels/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Test artifacts
+MagicMock/
+src/fingerprint/fingerprints/test_*.json
+src/fingerprint/fingerprints/test-*.json
+src/fingerprint/fingerprints/deterministic_test.json

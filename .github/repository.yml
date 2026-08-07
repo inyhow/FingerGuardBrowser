@@ -1,0 +1,29 @@
+# GitHub Repository Metadata (non-sensitive)
+# Copy these values into the repository Settings -> General page.
+
+description: "FingerGuard Browser — 轻量级 Chromium 指纹浏览器，支持代理池、23 维指纹伪装、Cookie 管理、拟人化行为与本地 API/MCP 控制。"
+homepage: ""
+topics:
+  - fingerprint-browser
+  - privacy
+  - chromium
+  - anti-detection
+  - web-scraping
+  - selenium
+  - undetected-chromedriver
+  - proxy-manager
+  - webview
+  - python
+
+# Suggested repository settings:
+# - Default branch: main
+# - Issues: enabled
+# - Discussions: enabled
+# - Wikis: disabled (documentation lives in README.md)
+# - Allow merge commits: enabled
+# - Allow squash merging: enabled
+# - Allow rebase merging: disabled
+
+# Branch protection for main:
+# - Require a pull request before merging
+# - Require status checks to pass: test (ubuntu-latest, 3.12)

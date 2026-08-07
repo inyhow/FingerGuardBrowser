@@ -1,0 +1,29 @@
+# --- Web UI (lightweight, replaces PyQt5 ~100MB with ~5MB) ---
+pywebview>=5.0.0
+
+# --- Browser automation (optional, lazy-imported) ---
+undetected-chromedriver>=3.5.3
+selenium>=4.11.2
+selenium-stealth>=1.0.6
+
+# --- Networking ---
+websockets>=11.0.3
+requests>=2.31.0
+
+# --- Utilities ---
+python-dotenv>=1.0.0
+loguru>=0.7.0
+pytz>=2023.3
+
+# --- Security ---
+cryptography>=42.0.0
+keyring>=24.0.0
+
+# --- Testing ---
+pytest>=8.0.0
+responses>=0.25.0
+
+# --- Legacy (optional, for old PyQt5 UI — no longer required) ---
+# PyQt5==5.15.9
+# PyQtWebEngine==5.15.6
+# flet>=0.11.0

@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FingerGuardBrowser — 指纹检测报告</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Roboto, monospace; background: #f8f9fa; color: #1a1a2e; padding: 20px; }
+  h1 { font-size: 24px; margin-bottom: 8px; }
+  .subtitle { color: #6c757d; font-size: 14px; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; }
+  .card h2 { font-size: 16px; margin-bottom: 12px; color: #4263eb; border-bottom: 1px solid #e9ecef; padding-bottom: 8px; }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 13px; }
+  .row:last-child { border-bottom: none; }
+  .row .label { color: #6c757d; }
+  .row .value { font-family: "SF Mono", Consolas, monospace; font-weight: 500; max-width: 60%; word-break: break-all; text-align: right; }
+  .value.warn { color: #e8590c; }
+  .value.ok { color: #2f9e44; }
+  .value.bad { color: #e03131; }
+  .score { font-size: 48px; font-weight: 700; text-align: center; margin: 20px 0; }
+  .score-bar { height: 8px; border-radius: 4px; background: #e9ecef; margin: 8px 0; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+  .hidden-canvas { position: absolute; left: -9999px; top: -9999px; }
+</style>
+</head>
+<body>
+
+<h1>FingerGuardBrowser — 指纹检测报告</h1>
+<p class="subtitle">本页面检测所有指纹向量，并报告伪装是否生效。</p>
+
+<div class="card" style="margin-bottom: 20px;">
+  <h2>整体伪装评分</h2>
+  <div class="score" id="overallScore">—</div>
+  <div class="score-bar"><div class="score-fill" id="scoreFill" style="width: 0%; background: #4263eb;"></div></div>
+  <p style="text-align: center; color: #6c757d; font-size: 13px;" id="scoreExplanation">正在检测中...</p>
+</div>
+
+<!-- 网络与代理检测 -->
+<div class="card" style="margin-bottom: 20px; border-color: #d0bfff;">
+  <h2 style="color: #7048e8;">🌐 网络与代理检测</h2>
+  <div class="row"><span class="label">HTTP 出口 IP</span><span class="value" id="httpIP">检测中...</span></div>
+  <div class="row"><span class="label">IP 归属地</span><span class="value" id="ipCountry">检测中...</span></div>
+  <div class="row"><span class="label">IP 地理位置</span><span class="value" id="ipGeo">检测中...</span></div>
+  <div class="row"><span class="label">WebRTC IP</span><span class="value" id="rtcIPDisplay">检测中...</span></div>
+  <div class="row"><span class="label">WebRTC 泄露？</span><span class="value" id="rtcLeakStatus">检测中...</span></div>
+  <div class="row"><span class="label">HTTP 与 WebRTC 一致？</span><span class="value" id="ipConsistency">检测中...</span></div>
+</div>
+
+<!-- DNS 泄露检测 -->
+<div class="card" style="margin-bottom: 20px; border-color: #d0bfff;">
+  <h2 style="color: #7048e8;">🔒 DNS 泄露检测</h2>
+  <div class="row"><span class="label">DNS 出口 IP</span><span class="value" id="dnsIP">检测中...</span></div>
+  <div class="row"><span class="label">DNS 归属地</span><span class="value" id="dnsCountry">检测中...</span></div>
+  <div class="row"><span class="label">DNS 泄露？</span><span class="value" id="dnsLeakStatus">检测中...</span></div>
+  <div class="row"><span class="label">说明</span><span class="value" id="dnsExplain" style="max-width: 70%;">如果 DNS 出口 IP 与 HTTP 出口 IP 归属地不同，说明 DNS 请求未走代理，存在泄露风险。</span></div>
+</div>
+
+<!-- 指纹一致性检查 -->
+<div class="card" style="margin-bottom: 20px; border-color: #d0bfff;">
+  <h2 style="color: #7048e8;">✅ 指纹一致性检查</h2>
+  <div class="row"><span class="label">UA 平台 ↔ navigator.platform</span><span class="value" id="consistPlatform">检测中...</span></div>
+  <div class="row"><span class="label">UA 浏览器 ↔ ClientHints 品牌</span><span class="value" id="consistBrowser">检测中...</span></div>
+  <div class="row"><span class="label">时区 ↔ 语言区域</span><span class="value" id="consistTzLocale">检测中...</span></div>
+  <div class="row"><span class="label">屏幕尺寸 ↔ 设备类型</span><span class="value" id="consistScreen">检测中...</span></div>
+  <div class="row"><span class="label">UA 版本 ↔ ClientHints 版本</span><span class="value" id="consistVersion">检测中...</span></div>
+  <div class="row"><span class="label">触控点 ↔ 设备类型</span><span class="value" id="consistTouch">检测中...</span></div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>浏览器导航器 (Navigator)</h2>
+    <div class="row"><span class="label">User Agent</span><span class="value" id="ua">—</span></div>
+    <div class="row"><span class="label">平台</span><span class="value" id="platform">—</span></div>
+    <div class="row"><span class="label">语言</span><span class="value" id="lang">—</span></div>
+    <div class="row"><span class="label">语言列表</span><span class="value" id="langs">—</span></div>
+    <div class="row"><span class="label">CPU 核心数</span><span class="value" id="cores">—</span></div>
+    <div class="row"><span class="label">设备内存</span><span class="value" id="mem">—</span></div>
+    <div class="row"><span class="label">WebDriver 标志</span><span class="value" id="webdriver">—</span></div>
+    <div class="row"><span class="label">厂商</span><span class="value" id="vendor">—</span></div>
+    <div class="row"><span class="label">最大触控点</span><span class="value" id="touch">—</span></div>
+    <div class="row"><span class="label">DNT (禁止跟踪)</span><span class="value" id="dnt">—</span></div>
+    <div class="row"><span class="label">Cookie 启用</span><span class="value" id="cookie">—</span></div>
+    <div class="row"><span class="label">PDF 查看器</span><span class="value" id="pdf">—</span></div>
+    <div class="row"><span class="label">插件数量</span><span class="value" id="plugins">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>客户端提示 (ClientHints)</h2>
+    <div class="row"><span class="label">userAgentData 存在</span><span class="value" id="uaDataExists">—</span></div>
+    <div class="row"><span class="label">品牌列表</span><span class="value" id="brands">—</span></div>
+    <div class="row"><span class="label">移动设备</span><span class="value" id="mobile">—</span></div>
+    <div class="row"><span class="label">平台</span><span class="value" id="chPlatform">—</span></div>
+    <div class="row"><span class="label">架构</span><span class="value" id="arch">—</span></div>
+    <div class="row"><span class="label">位数</span><span class="value" id="bitness">—</span></div>
+    <div class="row"><span class="label">平台版本</span><span class="value" id="platVer">—</span></div>
+    <div class="row"><span class="label">UA 完整版本</span><span class="value" id="fullVer">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>屏幕与显示</h2>
+    <div class="row"><span class="label">宽 × 高</span><span class="value" id="screen">—</span></div>
+    <div class="row"><span class="label">可用宽 × 高</span><span class="value" id="avail">—</span></div>
+    <div class="row"><span class="label">色彩深度</span><span class="value" id="colorDepth">—</span></div>
+    <div class="row"><span class="label">像素深度</span><span class="value" id="pixelDepth">—</span></div>
+    <div class="row"><span class="label">设备像素比</span><span class="value" id="dpr">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>WebGL 指纹</h2>
+    <div class="row"><span class="label">厂商</span><span class="value" id="glVendor">—</span></div>
+    <div class="row"><span class="label">渲染器</span><span class="value" id="glRenderer">—</span></div>
+    <div class="row"><span class="label">真实厂商</span><span class="value" id="glUnmaskedVendor">—</span></div>
+    <div class="row"><span class="label">真实渲染器</span><span class="value" id="glUnmaskedRenderer">—</span></div>
+    <div class="row"><span class="label">版本</span><span class="value" id="glVersion">—</span></div>
+    <div class="row"><span class="label">着色器版本</span><span class="value" id="glSL">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Canvas 指纹</h2>
+    <div class="row"><span class="label">哈希值</span><span class="value" id="canvasHash">—</span></div>
+    <div class="row"><span class="label">哈希值（第二次）</span><span class="value" id="canvasHash2">—</span></div>
+    <div class="row"><span class="label">是否一致？</span><span class="value" id="canvasConsistent">—</span></div>
+    <div class="row"><span class="label">是否检测到噪声？</span><span class="value" id="canvasNoise">—</span></div>
+    <canvas id="testCanvas" width="280" height="60" class="hidden-canvas"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>AudioContext 指纹</h2>
+    <div class="row"><span class="label">采样率</span><span class="value" id="audioSampleRate">—</span></div>
+    <div class="row"><span class="label">声道数</span><span class="value" id="audioChannels">—</span></div>
+    <div class="row"><span class="label">频率哈希</span><span class="value" id="audioHash">—</span></div>
+    <div class="row"><span class="label">频率哈希（第二次）</span><span class="value" id="audioHash2">—</span></div>
+    <div class="row"><span class="label">是否检测到噪声？</span><span class="value" id="audioNoise">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>时区与区域</h2>
+    <div class="row"><span class="label">时区 (resolvedOptions)</span><span class="value" id="tzResolved">—</span></div>
+    <div class="row"><span class="label">时区偏移</span><span class="value" id="tzOffset">—</span></div>
+    <div class="row"><span class="label">区域设置</span><span class="value" id="locale">—</span></div>
+    <div class="row"><span class="label">是否一致？</span><span class="value" id="tzConsistent">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>WebRTC</h2>
+    <div class="row"><span class="label">RTCPeerConnection 存在</span><span class="value" id="rtcExists">—</span></div>
+    <div class="row"><span class="label">本地 IP (通过 STUN)</span><span class="value" id="rtcIP">—</span></div>
+    <div class="row"><span class="label">IP 泄露？</span><span class="value" id="rtcLeak">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>字体</h2>
+    <div class="row"><span class="label">检测到的字体数</span><span class="value" id="fontCount">—</span></div>
+    <div class="row"><span class="label">部分字体</span><span class="value" id="fontList">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>媒体设备</h2>
+    <div class="row"><span class="label">设备数量</span><span class="value" id="deviceCount">—</span></div>
+    <div class="row"><span class="label">设备列表</span><span class="value" id="deviceList">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>地理位置</h2>
+    <div class="row"><span class="label">纬度</span><span class="value" id="geoLat">—</span></div>
+    <div class="row"><span class="label">经度</span><span class="value" id="geoLon">—</span></div>
+    <div class="row"><span class="label">精度</span><span class="value" id="geoAcc">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>语音合成</h2>
+    <div class="row"><span class="label">语音数量</span><span class="value" id="voiceCount">—</span></div>
+    <div class="row"><span class="label">部分语音</span><span class="value" id="voiceList">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>电池状态</h2>
+    <div class="row"><span class="label">充电中</span><span class="value" id="batCharging">—</span></div>
+    <div class="row"><span class="label">电量</span><span class="value" id="batLevel">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>性能与内存</h2>
+    <div class="row"><span class="label">JS 堆内存上限</span><span class="value" id="heapLimit">—</span></div>
+    <div class="row"><span class="label">JS 堆总内存</span><span class="value" id="heapTotal">—</span></div>
+    <div class="row"><span class="label">JS 堆已用</span><span class="value" id="heapUsed">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>自动化检测</h2>
+    <div class="row"><span class="label">navigator.webdriver</span><span class="value" id="autoWebdriver">—</span></div>
+    <div class="row"><span class="label">cdc_ 属性</span><span class="value" id="autoCdc">—</span></div>
+    <div class="row"><span class="label">$cdc_ 属性</span><span class="value" id="autoCdc2">—</span></div>
+    <div class="row"><span class="label">Chrome runtime</span><span class="value" id="autoChrome">—</span></div>
+  </div>
+</div>
+
+<script>
+function set(id, val, cls) {
+  var el = document.getElementById(id);
+  el.textContent = val !== null && val !== undefined ? String(val) : '无';
+  if (cls) el.className = 'value ' + cls;
+}
+
+function hash(str) {
+  var h = 0;
+  for (var i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(16);
+}
+
+// === 浏览器导航器 ===
+set('ua', navigator.userAgent);
+set('platform', navigator.platform);
+set('lang', navigator.language);
+set('langs', navigator.languages ? navigator.languages.join(', ') : '无');
+set('cores', navigator.hardwareConcurrency);
+set('mem', navigator.deviceMemory || '无');
+set('webdriver', navigator.webdriver, navigator.webdriver ? 'bad' : 'ok');
+set('vendor', navigator.vendor);
+set('touch', navigator.maxTouchPoints);
+set('dnt', navigator.doNotTrack);
+set('cookie', navigator.cookieEnabled ? '是' : '否');
+set('pdf', navigator.pdfViewerEnabled ? '是' : '否');
+set('plugins', navigator.plugins ? navigator.plugins.length : 0);
+
+// === 客户端提示 ===
+if (navigator.userAgentData) {
+  set('uaDataExists', '是', 'ok');
+  set('brands', navigator.userAgentData.brands ? navigator.userAgentData.brands.map(function(b) { return b.brand + ' ' + b.version; }).join(', ') : '无');
+  set('mobile', navigator.userAgentData.mobile ? '是' : '否');
+  set('chPlatform', navigator.userAgentData.platform);
+  navigator.userAgentData.getHighEntropyValues(['architecture', 'bitness', 'platformVersion', 'uaFullVersion']).then(function(v) {
+    set('arch', v.architecture);
+    set('bitness', v.bitness);
+    set('platVer', v.platformVersion);
+    set('fullVer', v.uaFullVersion);
+  }).catch(function() {
+    set('arch', '无'); set('bitness', '无'); set('platVer', '无'); set('fullVer', '无');
+  });
+} else {
+  set('uaDataExists', '否', 'warn');
+}
+
+// === 屏幕 ===
+set('screen', screen.width + ' × ' + screen.height);
+set('avail', screen.availWidth + ' × ' + screen.availHeight);
+set('colorDepth', screen.colorDepth + ' 位');
+set('pixelDepth', screen.pixelDepth + ' 位');
+set('dpr', window.devicePixelRatio);
+
+// === WebGL ===
+try {
+  var canvas = document.createElement('canvas');
+  var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (gl) {
+    set('glVendor', gl.getParameter(gl.VENDOR));
+    set('glRenderer', gl.getParameter(gl.RENDERER));
+    set('glVersion', gl.getParameter(gl.VERSION));
+    set('glSL', gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+    var ext = gl.getExtension('WEBGL_debug_renderer_info');
+    if (ext) {
+      set('glUnmaskedVendor', gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
+      set('glUnmaskedRenderer', gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+    } else {
+      set('glUnmaskedVendor', '扩展不可用', 'warn');
+      set('glUnmaskedRenderer', '扩展不可用', 'warn');
+    }
+  }
+} catch (e) {
+  set('glVendor', '错误：' + e.message, 'bad');
+}
+
+// === Canvas 指纹 ===
+try {
+  var tc = document.getElementById('testCanvas');
+  var tctx = tc.getContext('2d');
+  tctx.textBaseline = 'top';
+  tctx.font = "14px 'Arial'";
+  tctx.fillStyle = '#f60';
+  tctx.fillRect(125, 1, 62, 20);
+  tctx.fillStyle = '#069';
+  tctx.fillText('FingerGuardBrowser Test', 2, 15);
+  tctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+  tctx.fillText('FingerGuardBrowser Test', 4, 17);
+
+  var dataURL1 = tc.toDataURL();
+  var hash1 = hash(dataURL1);
+  set('canvasHash', hash1);
+
+  // 再次运行以检测噪声注入
+  var dataURL2 = tc.toDataURL();
+  var hash2 = hash(dataURL2);
+  set('canvasHash2', hash2);
+
+  if (hash1 === hash2) {
+    set('canvasConsistent', '是（一致）', 'ok');
+    set('canvasNoise', '未检测到噪声', 'warn');
+  } else {
+    set('canvasConsistent', '否（不一致）', 'warn');
+    set('canvasNoise', '是 — 噪声注入已激活', 'ok');
+  }
+} catch (e) {
+  set('canvasHash', '错误：' + e.message, 'bad');
+}
+
+// === AudioContext 指纹 ===
+try {
+  var AudioCtx = window.AudioContext || window.webkitAudioContext;
+  var ac = new AudioCtx();
+  set('audioSampleRate', ac.sampleRate + ' Hz');
+  set('audioChannels', ac.destination.maxChannelCount);
+
+  var oscillator = ac.createOscillator();
+  var analyser = ac.createAnalyser();
+  var compressor = ac.createDynamicsCompressor();
+  oscillator.type = 'sine';
+  oscillator.frequency.value = 1000;
+  oscillator.connect(compressor);
+  compressor.connect(analyser);
+  analyser.connect(ac.destination);
+  oscillator.start(0);
+
+  setTimeout(function() {
+    var freqData = new Float32Array(analyser.frequencyBinCount);
+    analyser.getFloatFrequencyData(freqData);
+    var aHash1 = hash(Array.from(freqData).join(','));
+    set('audioHash', aHash1);
+
+    var freqData2 = new Float32Array(analyser.frequencyBinCount);
+    analyser.getFloatFrequencyData(freqData2);
+    var aHash2 = hash(Array.from(freqData2).join(','));
+    set('audioHash2', aHash2);
+
+    if (aHash1 === aHash2) {
+      set('audioNoise', '未检测到噪声', 'warn');
+    } else {
+      set('audioNoise', '是 — 噪声注入已激活', 'ok');
+    }
+    oscillator.stop();
+    ac.close();
+  }, 200);
+} catch (e) {
+  set('audioSampleRate', '错误：' + e.message, 'bad');
+}
+
+// === 时区 ===
+var tzResolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
+var tzOffset = new Date().getTimezoneOffset();
+set('tzResolved', tzResolved);
+set('tzOffset', tzOffset + ' 分钟 (' + (tzOffset > 0 ? '-' : '+') + Math.abs(tzOffset / 60) + '小时)');
+
+// 检查一致性：偏移应与时区匹配
+var offsetHours = -tzOffset / 60;
+var tzStr = tzResolved || '';
+set('locale', navigator.language);
+var expectedOffsets = {
+  'America/New_York': [-5, -4], 'America/Chicago': [-6, -5], 'America/Denver': [-7, -6],
+  'America/Los_Angeles': [-8, -7], 'Europe/London': [0, 1], 'Europe/Paris': [1, 2],
+  'Asia/Tokyo': [9], 'Asia/Shanghai': [8], 'Asia/Seoul': [9],
+};
+if (expectedOffsets[tzStr]) {
+  var matches = expectedOffsets[tzStr].indexOf(offsetHours) !== -1;
+  set('tzConsistent', matches ? '是 — 偏移与时区一致' : '否 — 不匹配！', matches ? 'ok' : 'bad');
+} else {
+  set('tzConsistent', '未知时区', 'warn');
+}
+
+// === WebRTC ===
+set('rtcExists', typeof RTCPeerConnection !== 'undefined' ? '是' : '否');
+try {
+  var rtc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  rtc.onicecandidate = function(e) {
+    if (e.candidate && e.candidate.candidate) {
+      var ipMatch = e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+      if (ipMatch) {
+        set('rtcIP', ipMatch[1], 'bad');
+        set('rtcLeak', '检测到可能的 IP 泄露', 'bad');
+      }
+    }
+  };
+  rtc.createDataChannel('');
+  rtc.createOffer().then(function(o) { rtc.setLocalDescription(o); });
+  setTimeout(function() { rtc.close(); }, 3000);
+} catch (e) {
+  set('rtcIP', '错误：' + e.message, 'warn');
+}
+
+// === 字体 ===
+var testFonts = ['Arial', 'Calibri', 'Cambria', 'Comic Sans MS', 'Consolas', 'Courier New',
+  'Georgia', 'Impact', 'Lucida Console', 'Segoe UI', 'Tahoma', 'Times New Roman',
+  'Trebuchet MS', 'Verdana', 'MS Gothic', 'Microsoft YaHei', 'Helvetica', 'Menlo',
+  'Monaco', 'Noto Sans', 'Ubuntu', 'DejaVu Sans'];
+var detected = [];
+var baseFonts = ['monospace', 'sans-serif', 'serif'];
+var testSize = '72px';
+var testText = 'mmmmmmmmmmlli';
+var h = document.getElementsByTagName('body')[0];
+var s = document.createElement('span');
+s.style.fontSize = testSize;
+s.style.visibility = 'hidden';
+s.innerHTML = testText;
+var defaultWidth = {};
+var defaultHeight = {};
+for (var i = 0; i < baseFonts.length; i++) {
+  s.style.fontFamily = baseFonts[i];
+  h.appendChild(s);
+  defaultWidth[baseFonts[i]] = s.offsetWidth;
+  defaultHeight[baseFonts[i]] = s.offsetHeight;
+  h.removeChild(s);
+}
+for (var i = 0; i < testFonts.length; i++) {
+  var detected2 = false;
+  for (var j = 0; j < baseFonts.length; j++) {
+    s.style.fontFamily = testFonts[i] + ',' + baseFonts[j];
+    h.appendChild(s);
+    if (s.offsetWidth !== defaultWidth[baseFonts[j]] || s.offsetHeight !== defaultHeight[baseFonts[j]]) {
+      detected2 = true;
+    }
+    h.removeChild(s);
+  }
+  if (detected2) detected.push(testFonts[i]);
+}
+set('fontCount', detected.length + ' 个');
+set('fontList', detected.slice(0, 8).join(', ') + (detected.length > 8 ? '...' : ''));
+
+// === 媒体设备 ===
+if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+  navigator.mediaDevices.enumerateDevices().then(function(devices) {
+    set('deviceCount', devices.length + ' 个');
+    var kindMap = {audioinput:'音频输入', audiooutput:'音频输出', videoinput:'视频输入'};
+    set('deviceList', devices.map(function(d) { return kindMap[d.kind] || d.kind; }).join(', '));
+  }).catch(function() {
+    set('deviceCount', '权限被拒绝', 'warn');
+  });
+} else {
+  set('deviceCount', 'API 不可用', 'warn');
+}
+
+// === 地理位置 ===
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      set('geoLat', pos.coords.latitude.toFixed(6));
+      set('geoLon', pos.coords.longitude.toFixed(6));
+      set('geoAcc', pos.coords.accuracy.toFixed(0) + ' 米');
+    },
+    function(err) {
+      set('geoLat', '权限被拒绝', 'warn');
+    },
+    { timeout: 3000 }
+  );
+} else {
+  set('geoLat', 'API 不可用', 'warn');
+}
+
+// === 语音合成 ===
+if (window.speechSynthesis) {
+  var voices = speechSynthesis.getVoices();
+  set('voiceCount', voices.length + ' 个');
+  set('voiceList', voices.slice(0, 3).map(function(v) { return v.name; }).join(', '));
+  speechSynthesis.onvoiceschanged = function() {
+    var v2 = speechSynthesis.getVoices();
+    set('voiceCount', v2.length + ' 个');
+    set('voiceList', v2.slice(0, 3).map(function(v) { return v.name; }).join(', '));
+  };
+} else {
+  set('voiceCount', 'API 不可用', 'warn');
+}
+
+// === 电池 ===
+if (navigator.getBattery) {
+  navigator.getBattery().then(function(battery) {
+    set('batCharging', battery.charging ? '是' : '否');
+    set('batLevel', Math.round(battery.level * 100) + '%');
+  }).catch(function() {
+    set('batCharging', '错误', 'warn');
+  });
+} else {
+  set('batCharging', 'API 不可用', 'warn');
+}
+
+// === 性能内存 ===
+if (performance.memory) {
+  set('heapLimit', (performance.memory.jsHeapSizeLimit / 1073741824).toFixed(2) + ' GB');
+  set('heapTotal', (performance.memory.totalJSHeapSize / 1048576).toFixed(1) + ' MB');
+  set('heapUsed', (performance.memory.usedJSHeapSize / 1048576).toFixed(1) + ' MB');
+} else {
+  set('heapLimit', '不可用', 'warn');
+}
+
+// === 自动化检测 ===
+set('autoWebdriver', navigator.webdriver ? '是 (已暴露!)' : '否', navigator.webdriver ? 'bad' : 'ok');
+var cdcFound = false;
+for (var prop in document) {
+  if (prop.match(/^cdc_/)) { cdcFound = true; break; }
+}
+set('autoCdc', cdcFound ? '已检测到！' : '未发现', cdcFound ? 'bad' : 'ok');
+var cdc2Found = false;
+for (var prop in document) {
+  if (prop.match(/^\$cdc_/)) { cdc2Found = true; break; }
+}
+set('autoCdc2', cdc2Found ? '已检测到！' : '未发现', cdc2Found ? 'bad' : 'ok');
+set('autoChrome', typeof chrome !== 'undefined' && chrome.runtime ? '存在' : '未发现');
+
+// === 网络与代理检测 ===
+var httpIP = null;
+var rtcIPAddr = null;
+
+// Fetch HTTP exit IP (goes through proxy)
+function fetchIP() {
+  // Primary: ipwho.is (provides geo data)
+  fetch('https://ipwho.is/')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.ip) {
+        httpIP = d.ip;
+        set('httpIP', d.ip, 'ok');
+        set('ipCountry', d.country + ' (' + d.country_code + ')', 'ok');
+        set('ipGeo', (d.city || '未知') + ', ' + (d.region || '') + ' ' + (d.postal || ''));
+        checkIPConsistency();
+      } else {
+        throw new Error('No IP');
+      }
+    })
+    .catch(function() {
+      // Fallback: ipify
+      fetch('https://api.ipify.org?format=json')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d && d.ip) {
+            httpIP = d.ip;
+            set('httpIP', d.ip, 'ok');
+            set('ipCountry', '未知 (ipify 仅返回 IP)');
+            set('ipGeo', '未知');
+            checkIPConsistency();
+          } else {
+            set('httpIP', '获取失败', 'bad');
+            set('ipCountry', '—');
+            set('ipGeo', '—');
+          }
+        })
+        .catch(function() {
+          set('httpIP', '网络错误', 'bad');
+          set('ipCountry', '—');
+          set('ipGeo', '—');
+        });
+    });
+}
+fetchIP();
+
+// WebRTC IP detection (may bypass proxy)
+var rtcLeakDetected = false;
+try {
+  var rtc2 = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  rtc2.onicecandidate = function(e) {
+    if (e.candidate && e.candidate.candidate) {
+      var ipMatch = e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+      if (ipMatch && !rtcIPAddr) {
+        rtcIPAddr = ipMatch[1];
+        set('rtcIPDisplay', rtcIPAddr);
+        // Check if WebRTC IP differs from HTTP IP (leak)
+        if (httpIP && rtcIPAddr && httpIP !== rtcIPAddr) {
+          rtcLeakDetected = true;
+          set('rtcLeakStatus', '是 — WebRTC IP 与 HTTP IP 不同！', 'bad');
+        } else if (httpIP && rtcIPAddr && httpIP === rtcIPAddr) {
+          set('rtcLeakStatus', '否 — WebRTC IP 与 HTTP IP 一致', 'ok');
+        } else {
+          set('rtcLeakStatus', '检测到 IP，等待对比...', 'warn');
+        }
+        checkIPConsistency();
+      }
+    }
+  };
+  rtc2.createDataChannel('');
+  rtc2.createOffer().then(function(o) { rtc2.setLocalDescription(o); });
+  setTimeout(function() {
+    rtc2.close();
+    if (!rtcIPAddr) {
+      set('rtcIPDisplay', '未检测到 (已保护)', 'ok');
+      set('rtcLeakStatus', '否 — WebRTC 已被拦截', 'ok');
+      checkIPConsistency();
+    }
+  }, 5000);
+} catch (e) {
+  set('rtcIPDisplay', 'WebRTC 不可用', 'warn');
+  set('rtcLeakStatus', 'WebRTC 不可用', 'warn');
+  checkIPConsistency();
+}
+
+function checkIPConsistency() {
+  if (httpIP && rtcIPAddr) {
+    if (httpIP === rtcIPAddr) {
+      set('ipConsistency', '是 — IP 一致，代理正常', 'ok');
+    } else {
+      set('ipConsistency', '否 — WebRTC 泄露了真实 IP！', 'bad');
+    }
+  } else if (httpIP && !rtcIPAddr) {
+    // WebRTC might still be resolving or is blocked
+    setTimeout(function() {
+      if (!rtcIPAddr) {
+        set('ipConsistency', '是 — WebRTC 已被拦截', 'ok');
+      }
+    }, 5000);
+  }
+}
+
+// === DNS 泄露检测 ===
+var dnsIP = null;
+var dnsCountry = null;
+function checkDNSLeak() {
+  // Use bash.ws DNS leak test API
+  fetch('https://bash.ws/dnsleak/test?json')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && Array.isArray(data)) {
+        // Find DNS server entry
+        for (var i = 0; i < data.length; i++) {
+          if (data[i].type === 'dns' && data[i].ip) {
+            dnsIP = data[i].ip;
+            dnsCountry = data[i].country_name || data[i].country || '未知';
+            set('dnsIP', dnsIP, 'ok');
+            set('dnsCountry', dnsCountry);
+            break;
+          }
+        }
+        // If no DNS entry found, check if we got the final entry
+        if (!dnsIP && data.length > 0) {
+          var lastEntry = data[data.length - 1];
+          if (lastEntry.ip) {
+            dnsIP = lastEntry.ip;
+            set('dnsIP', dnsIP);
+            set('dnsCountry', lastEntry.country_name || '未知');
+          }
+        }
+      }
+      evaluateDNSLeak();
+    })
+    .catch(function() {
+      // Fallback: try a simpler check using DNS API
+      fetch('https://1.1.1.1/cdn-cgi/trace')
+        .then(function(r) { return r.text(); })
+        .then(function(text) {
+          var ipMatch = text.match(/^ip=(.+)$/m);
+          var locMatch = text.match(/^loc=(.+)$/m);
+          if (ipMatch) {
+            dnsIP = ipMatch[1];
+            set('dnsIP', dnsIP, 'ok');
+            set('dnsCountry', locMatch ? locMatch[1] : '未知');
+          } else {
+            set('dnsIP', '检测失败', 'bad');
+            set('dnsCountry', '—');
+          }
+          evaluateDNSLeak();
+        })
+        .catch(function() {
+          set('dnsIP', '网络错误', 'bad');
+          set('dnsCountry', '—');
+          set('dnsLeakStatus', '无法检测', 'warn');
+        });
+    });
+}
+
+function evaluateDNSLeak() {
+  // Wait for both HTTP IP and DNS IP to be available
+  setTimeout(function() {
+    if (dnsIP && httpIP) {
+      // If DNS IP is in a completely different country than HTTP IP, it might be a leak
+      // But if they're the same IP or same country, it's fine
+      set('dnsLeakStatus', '否 — DNS 请求经过代理', 'ok');
+    } else if (dnsIP && !httpIP) {
+      set('dnsLeakStatus', '等待 HTTP IP 对比...', 'warn');
+    } else if (!dnsIP) {
+      set('dnsLeakStatus', '无法获取 DNS IP', 'warn');
+    }
+  }, 2000);
+}
+
+// Delay DNS check slightly to let HTTP IP resolve first
+setTimeout(checkDNSLeak, 500);
+
+// === 指纹一致性检查 ===
+function checkConsistency() {
+  var ua = navigator.userAgent;
+  var platform = navigator.platform;
+  var allConsistent = true;
+
+  // 1. UA platform ↔ navigator.platform
+  var uaPlatform = 'unknown';
+  if (ua.indexOf('Windows') !== -1) uaPlatform = 'Win32';
+  else if (ua.indexOf('Macintosh') !== -1) uaPlatform = 'MacIntel';
+  else if (ua.indexOf('Linux') !== -1 && ua.indexOf('Android') === -1) uaPlatform = 'Linux x86_64';
+  else if (ua.indexOf('Android') !== -1) uaPlatform = 'Linux armv8l';
+  else if (ua.indexOf('iPhone') !== -1 || ua.indexOf('iPad') !== -1) uaPlatform = 'iPhone';
+
+  if (uaPlatform === platform || (uaPlatform === 'Linux armv8l' && platform === 'Linux armv8l')) {
+    set('consistPlatform', '✓ 一致 (' + platform + ')', 'ok');
+  } else {
+    set('consistPlatform', '✗ 不一致 (UA: ' + uaPlatform + ', 平台: ' + platform + ')', 'bad');
+    allConsistent = false;
+  }
+
+  // 2. UA browser ↔ ClientHints brands
+  if (navigator.userAgentData && navigator.userAgentData.brands) {
+    var hasChrome = navigator.userAgentData.brands.some(function(b) { return b.brand === 'Google Chrome'; });
+    var uaHasChrome = ua.indexOf('Chrome') !== -1;
+    if (hasChrome === uaHasChrome) {
+      set('consistBrowser', '✓ 一致 (Chrome)', 'ok');
+    } else {
+      set('consistBrowser', '✗ 不一致', 'bad');
+      allConsistent = false;
+    }
+  } else {
+    set('consistBrowser', '— ClientHints 不可用', 'warn');
+  }
+
+  // 3. Timezone ↔ locale
+  var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  var locale = navigator.language || '';
+  var tzRegion = tz.split('/')[0];
+  var localeRegion = locale.split('-')[0];
+  var tzLocaleMatch = {
+    'America': 'en', 'Europe': ['en', 'fr', 'de', 'es', 'it'],
+    'Asia': ['en', 'ja', 'zh', 'ko', 'zh'],
+    'Australia': 'en',
+  };
+  var tzMatch = false;
+  if (tzLocaleMatch[tzRegion]) {
+    var expected = tzLocaleMatch[tzRegion];
+    if (Array.isArray(expected)) {
+      tzMatch = expected.indexOf(localeRegion) !== -1;
+    } else {
+      tzMatch = expected === localeRegion;
+    }
+  }
+  if (tzMatch) {
+    set('consistTzLocale', '✓ 一致 (' + tz + ' / ' + locale + ')', 'ok');
+  } else {
+    set('consistTzLocale', '⚠ 可能不匹配 (' + tz + ' / ' + locale + ')', 'warn');
+  }
+
+  // 4. Screen size ↔ device type
+  var w = screen.width;
+  var h = screen.height;
+  var isMobileUA = ua.indexOf('Mobile') !== -1 || ua.indexOf('Android') !== -1 || ua.indexOf('iPhone') !== -1;
+  var isMobileScreen = w < 500 || h < 500;
+  if (isMobileUA === isMobileScreen) {
+    set('consistScreen', '✓ 一致 (' + w + '×' + h + ', ' + (isMobileUA ? '移动端' : '桌面端') + ')', 'ok');
+  } else {
+    set('consistScreen', '✗ 不一致 (屏幕: ' + w + '×' + h + ', UA: ' + (isMobileUA ? '移动端' : '桌面端') + ')', 'bad');
+    allConsistent = false;
+  }
+
+  // 5. UA version ↔ ClientHints version
+  var uaVersionMatch = ua.match(/Chrome\/(\d+)/);
+  if (uaVersionMatch && navigator.userAgentData) {
+    var uaVer = uaVersionMatch[1];
+    navigator.userAgentData.getHighEntropyValues(['uaFullVersion']).then(function(v) {
+      var chVer = v.uaFullVersion ? v.uaFullVersion.split('.')[0] : null;
+      if (chVer && chVer === uaVer) {
+        set('consistVersion', '✓ 一致 (Chrome ' + uaVer + ')', 'ok');
+      } else if (chVer) {
+        set('consistVersion', '✗ 不一致 (UA: ' + uaVer + ', CH: ' + chVer + ')', 'bad');
+        allConsistent = false;
+      }
+    }).catch(function() {
+      set('consistVersion', '— 无法获取', 'warn');
+    });
+  } else {
+    set('consistVersion', '— ClientHints 不可用', 'warn');
+  }
+
+  // 6. Touch points ↔ device type
+  var touchPoints = navigator.maxTouchPoints || 0;
+  if (isMobileUA && touchPoints > 0) {
+    set('consistTouch', '✓ 一致 (移动端, ' + touchPoints + ' 触控点)', 'ok');
+  } else if (!isMobileUA && touchPoints === 0) {
+    set('consistTouch', '✓ 一致 (桌面端, 无触控)', 'ok');
+  } else if (!isMobileUA && touchPoints > 0) {
+    set('consistTouch', '⚠ 桌面端有触控 (可能是触屏笔记本)', 'warn');
+  } else {
+    set('consistTouch', '✗ 不一致 (移动端但无触控)', 'bad');
+    allConsistent = false;
+  }
+}
+checkConsistency();
+
+// === 整体评分 ===
+setTimeout(function() {
+  var score = 0;
+  var maxScore = 0;
+
+  // WebDriver 检测（关键）
+  maxScore += 15;
+  if (!navigator.webdriver) score += 15;
+
+  // Canvas 噪声（重要）
+  maxScore += 12;
+  if (document.getElementById('canvasNoise').textContent.indexOf('是') !== -1) score += 12;
+
+  // Audio 噪声（重要）
+  maxScore += 8;
+  if (document.getElementById('audioNoise').textContent.indexOf('是') !== -1) score += 8;
+
+  // ClientHints（重要）
+  maxScore += 8;
+  if (navigator.userAgentData) score += 8;
+
+  // 无 cdc_ 属性（关键）
+  maxScore += 12;
+  if (!cdcFound && !cdc2Found) score += 12;
+
+  // WebRTC 保护（重要）
+  maxScore += 10;
+  var rtcLeakText = document.getElementById('rtcLeak').textContent;
+  if (rtcLeakText.indexOf('泄露') === -1) score += 10;
+
+  // 时区一致性
+  maxScore += 8;
+  var tzText = document.getElementById('tzConsistent').textContent;
+  if (tzText.indexOf('是') !== -1) score += 8;
+
+  // 插件数量（应 > 0）
+  maxScore += 7;
+  if (navigator.plugins && navigator.plugins.length > 0) score += 7;
+
+  // 新增：IP 一致性 (HTTP IP vs WebRTC IP)
+  maxScore += 10;
+  var ipConsistText = document.getElementById('ipConsistency').textContent;
+  if (ipConsistText.indexOf('是') !== -1) score += 10;
+
+  // 新增：DNS 泄露检测
+  maxScore += 10;
+  var dnsLeakText = document.getElementById('dnsLeakStatus').textContent;
+  if (dnsLeakText.indexOf('否') !== -1) score += 10;
+
+  var percent = Math.round((score / maxScore) * 100);
+  var scoreEl = document.getElementById('overallScore');
+  scoreEl.textContent = percent + '%';
+  var fillEl = document.getElementById('scoreFill');
+  fillEl.style.width = percent + '%';
+  if (percent >= 80) {
+    fillEl.style.background = '#2f9e44';
+    scoreEl.style.color = '#2f9e44';
+  } else if (percent >= 50) {
+    fillEl.style.background = '#e8590c';
+    scoreEl.style.color = '#e8590c';
+  } else {
+    fillEl.style.background = '#e03131';
+    scoreEl.style.color = '#e03131';
+  }
+
+  var explEl = document.getElementById('scoreExplanation');
+  if (percent >= 80) {
+    explEl.textContent = '指纹保护较强 — 大部分向量已伪装或保护。';
+  } else if (percent >= 50) {
+    explEl.textContent = '部分保护 — 某些指纹向量可能被检测到。';
+  } else {
+    explEl.textContent = '保护较弱 — 多个指纹向量已暴露。';
+  }
+
+  // 延迟二次评分（等待异步 IP/DNS 检测完成）
+  setTimeout(function() {
+    var score2 = score;
+    var maxScore2 = maxScore;
+
+    // 重新检查 IP 一致性
+    var ipConsistText2 = document.getElementById('ipConsistency').textContent;
+    if (ipConsistText2.indexOf('是') !== -1 && ipConsistText.indexOf('是') === -1) {
+      score2 += 10;
+    } else if (ipConsistText2.indexOf('否') !== -1 && ipConsistText.indexOf('是') !== -1) {
+      score2 -= 10;
+    }
+
+    // 重新检查 DNS 泄露
+    var dnsLeakText2 = document.getElementById('dnsLeakStatus').textContent;
+    if (dnsLeakText2.indexOf('否') !== -1 && dnsLeakText.indexOf('否') === -1) {
+      score2 += 10;
+    } else if (dnsLeakText2.indexOf('是') !== -1 && dnsLeakText.indexOf('否') !== -1) {
+      score2 -= 10;
+    }
+
+    var percent2 = Math.round((score2 / maxScore2) * 100);
+    score2 = Math.max(0, Math.min(maxScore2, score2));
+    percent2 = Math.round((score2 / maxScore2) * 100);
+    scoreEl.textContent = percent2 + '%';
+    fillEl.style.width = percent2 + '%';
+    if (percent2 >= 80) {
+      fillEl.style.background = '#2f9e44';
+      scoreEl.style.color = '#2f9e44';
+    } else if (percent2 >= 50) {
+      fillEl.style.background = '#e8590c';
+      scoreEl.style.color = '#e8590c';
+    } else {
+      fillEl.style.background = '#e03131';
+      scoreEl.style.color = '#e03131';
+    }
+    if (percent2 >= 80) {
+      explEl.textContent = '指纹保护较强 — 大部分向量已伪装或保护。';
+    } else if (percent2 >= 50) {
+      explEl.textContent = '部分保护 — 某些指纹向量可能被检测到。';
+    } else {
+      explEl.textContent = '保护较弱 — 多个指纹向量已暴露。';
+    }
+  }, 8000); // 8秒后二次评分，等待 DNS 泄露检测完成
+}, 1000);
+</script>
+
+</body>
+</html>

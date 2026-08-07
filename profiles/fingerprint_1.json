@@ -1,0 +1,61 @@
+{
+    "navigator": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36",
+        "platform": "Windows",
+        "language": [
+            "en-US",
+            "en"
+        ],
+        "languages": [
+            "en-US",
+            "en"
+        ],
+        "hardwareConcurrency": 8,
+        "deviceMemory": 8,
+        "webdriver": false
+    },
+    "screen": {
+        "width": 1536,
+        "height": 864,
+        "availWidth": 1536,
+        "availHeight": 824,
+        "colorDepth": 24,
+        "pixelDepth": 24
+    },
+    "webgl": {
+        "vendor": "Google Inc. (NVIDIA)",
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 SUPER Direct3D11 vs_5_0 ps_5_0)",
+        "unmaskedVendor": "Google Inc.",
+        "unmaskedRenderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 SUPER Direct3D11 vs_5_0 ps_5_0)"
+    },
+    "audio": {
+        "state": "suspended",
+        "sampleRate": 44100,
+        "channelCount": 2
+    },
+    "mediaDevices": {
+        "enabledDevices": [
+            "audioinput",
+            "audiooutput",
+            "videoinput"
+        ]
+    },
+    "fonts": [
+        "Arial",
+        "Arial Black",
+        "Arial Unicode MS",
+        "Calibri",
+        "Cambria",
+        "Cambria Math",
+        "Comic Sans MS",
+        "Courier",
+        "Courier New",
+        "Georgia",
+        "Helvetica",
+        "Impact",
+        "Times",
+        "Times New Roman",
+        "Trebuchet MS",
+        "Verdana"
+    ]
+}

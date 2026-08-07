@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Virtual Browser Info</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .info-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .info-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #2196F3;
+            min-width: 150px;
+        }
+        .info-value {
+            color: #666;
+            flex: 1;
+        }
+        h1 {
+            color: #2196F3;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .status.protected {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.unprotected {
+            background-color: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="info-container">
+        <h1>Browser Information</h1>
+        
+        <div class="info-item">
+            <span class="info-label">IP Address:</span>
+            <span class="info-value" id="ip">Loading...</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">Location:</span>
+            <span class="info-value" id="location">Loading...</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">Timezone:</span>
+            <span class="info-value" id="timezone">Loading...</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">Local Time:</span>
+            <span class="info-value" id="localTime">Loading...</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">Language:</span>
+            <span class="info-value" id="language">Loading...</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">User Agent:</span>
+            <span class="info-value" id="userAgent">Loading...</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">Screen Resolution:</span>
+            <span class="info-value" id="resolution">Loading...</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">CPU Cores:</span>
+            <span class="info-value" id="cpuCores">Loading...</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">Memory:</span>
+            <span class="info-value" id="memory">Loading...</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">WebGL:</span>
+            <span class="info-value" id="webgl">Loading...</span>
+        </div>
+
+        <div class="info-item">
+            <span class="info-label">WebRTC:</span>
+            <span class="info-value" id="webrtc">Loading...</span>
+        </div>
+
+        <div class="info-item">
+            <span class="info-label">Canvas Protection:</span>
+            <span class="info-value" id="canvas">Loading...</span>
+        </div>
+
+        <div class="info-item">
+            <span class="info-label">Audio Protection:</span>
+            <span class="info-value" id="audio">Loading...</span>
+        </div>
+    </div>
+
+    <script>
+        // Update protection status
+        function updateStatus(elementId, isProtected) {
+            const element = document.getElementById(elementId);
+            const status = document.createElement('span');
+            status.className = `status ${isProtected ? 'protected' : 'unprotected'}`;
+            status.textContent = isProtected ? 'Protected' : 'Unprotected';
+            element.textContent = isProtected ? 'Enabled' : 'Disabled';
+            element.appendChild(status);
+        }
+
+        // Basic information
+        document.getElementById('userAgent').textContent = navigator.userAgent;
+        document.getElementById('language').textContent = navigator.language || navigator.userLanguage;
+        document.getElementById('resolution').textContent = `${screen.width}x${screen.height}`;
+        document.getElementById('cpuCores').textContent = navigator.hardwareConcurrency;
+        document.getElementById('memory').textContent = navigator.deviceMemory ? `${navigator.deviceMemory}GB` : 'Unknown';
+
+        // Timezone and time
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        document.getElementById('timezone').textContent = timezone;
+        
+        function updateTime() {
+            document.getElementById('localTime').textContent = new Date().toLocaleString();
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // IP and location (using ipapi.co)
+        fetch('https://ipapi.co/json/')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('ip').textContent = data.ip;
+                document.getElementById('location').textContent = 
+                    `${data.city}, ${data.region}, ${data.country_name}`;
+            })
+            .catch(error => {
+                document.getElementById('ip').textContent = 'Unable to fetch';
+                document.getElementById('location').textContent = 'Unable to fetch';
+            });
+
+        // WebGL information
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+            const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+            document.getElementById('webgl').textContent = `${vendor} - ${renderer}`;
+        } catch (e) {
+            document.getElementById('webgl').textContent = 'Unable to fetch';
+        }
+
+        // Protection status
+        updateStatus('webrtc', window.RTCPeerConnection === undefined);
+        
+        // Test canvas fingerprinting
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = "top";
+            ctx.font = "14px 'Arial'";
+            ctx.textBaseline = "alphabetic";
+            ctx.fillStyle = "#f60";
+            ctx.fillRect(125,1,62,20);
+            ctx.fillStyle = "#069";
+            ctx.fillText("abcdefghijklmnopqrstuvwxyz", 2, 15);
+            ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+            ctx.fillText("abcdefghijklmnopqrstuvwxyz", 4, 17);
+            
+            const result1 = canvas.toDataURL();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillText("abcdefghijklmnopqrstuvwxyz", 4, 17);
+            const result2 = canvas.toDataURL();
+            
+            updateStatus('canvas', result1 !== result2);
+        } catch (e) {
+            updateStatus('canvas', false);
+        }
+
+        // Test audio fingerprinting
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const analyser = audioContext.createAnalyser();
+            oscillator.connect(analyser);
+            const result1 = new Float32Array(analyser.frequencyBinCount);
+            analyser.getFloatFrequencyData(result1);
+            const result2 = new Float32Array(analyser.frequencyBinCount);
+            analyser.getFloatFrequencyData(result2);
+            
+            updateStatus('audio', !result1.every((val, idx) => val === result2[idx]));
+            audioContext.close();
+        } catch (e) {
+            updateStatus('audio', false);
+        }
+    </script>
+</body>
+</html>
