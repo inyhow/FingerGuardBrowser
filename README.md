@@ -1,6 +1,6 @@
 # FingerGuard Browser — 隐私保护指纹浏览器
 
-[![Tests](https://github.com/yourusername/FingerGuardBrowser/actions/workflows/build.yml/badge.svg)](https://github.com/yourusername/FingerGuardBrowser/actions/workflows/build.yml)
+[![Tests](https://github.com/inyhow/FingerGuardBrowser/actions/workflows/build.yml/badge.svg)](https://github.com/inyhow/FingerGuardBrowser/actions/workflows/build.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -42,7 +42,7 @@ FingerGuard Browser 是一款基于 Chromium 的轻量级指纹浏览器，专�
 
 ### 方式一：下载 Windows 安装包（推荐）
 
-1. 访问 [Releases](https://github.com/yourusername/FingerGuardBrowser/releases) 页面。
+1. 访问 [Releases](https://github.com/inyhow/FingerGuardBrowser/releases) 页面。
 2. 下载 `FingerGuardBrowser-Windows.zip`（便携版）或 `FingerGuardBrowser-Setup.exe`（安装版）。
 3. 解压/安装后，双击 `FingerGuardBrowser.exe` 或 `FingerGuardBrowser-quiet.bat` 启动。
 4. 用户数据（数据库、日志、Chrome 缓存）自动存放在 `%LOCALAPPDATA%\FingerGuardBrowser`，不会写入安装目录。
@@ -175,5 +175,5 @@ MIT License — 详见 [LICENSE](LICENSE)。
 
 ## 联系方式
 
-- GitHub Issues：[https://github.com/yourusername/FingerGuardBrowser/issues](https://github.com/yourusername/FingerGuardBrowser/issues)
-- 邮箱：请替换为项目公开邮箱
+- GitHub Issues：[https://github.com/inyhow/FingerGuardBrowser/issues](https://github.com/inyhow/FingerGuardBrowser/issues)
+- 邮箱：inyhow@gmail.com
